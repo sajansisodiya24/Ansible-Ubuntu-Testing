@@ -1,0 +1,4800 @@
+#CID-16108:Ensure minimim password length is  enforced
+---
+- name: Enforce minimum password length
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set minimum password length to 15
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^#?(\s*minlen\s*=\s*).*'
+        line: 'minlen = 15'
+   
+#CID-17292:Ensure password complexity is configured to minclass=4
+
+    - name: Set minimum number of character classes
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^#?(\s*minclass\s*=\s*).*'
+        line: 'minclass = 4'
+
+#CID-1091:Ensure password expiration warning days is 7 or more
+
+- name: Ensure password expiration warning days
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set password expiration warning days to 7 or more
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^#?\s*PASS_WARN_AGE\s+.*'
+        line: 'PASS_WARN_AGE 7'
+        state: present
+
+#CID-10690:Ensure the Permissions set for the '/etc/passwd-' file is set to "644"
+
+- name: Ensure permissions for /etc/passwd- are set to 644
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set permissions for /etc/passwd- to 644
+      file:
+        path: /etc/passwd-
+        mode: '0644'
+
+#CID-10691:Ensure the Ownership set for the '/etc/passwd-' file is set to "root"
+
+- name: Ensure ownership of /etc/passwd- is set to root
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ownership for /etc/passwd- to root
+      file:
+        path: /etc/passwd-
+        owner: root
+        group: root
+
+#CID-11328:Ensure the 'chrony' package is installed 
+
+- name: Ensure chrony package is installed
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install chrony package
+      apt:
+        name: chrony
+        state: present
+        update_cache: yes
+
+#CID-16055:Ensure 'vsftpd' package is disabled or not installed
+
+- name: Ensure vsftpd package is disabled or not installed
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Stop vsftpd service if running
+      service:
+        name: vsftpd
+        state: stopped
+      ignore_errors: true
+
+    - name: Disable vsftpd service
+      service:
+        name: vsftpd
+        enabled: no
+      ignore_errors: true
+
+    - name: Ensure vsftpd package is not installed
+      apt:
+        name: vsftpd
+        state: absent
+
+#CID-9946:Ensure the rsh-client package is removed or not installed
+
+- name: Ensure rsh-client package is removed or not installed
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure rsh-client package is not installed
+      apt:
+        name: rsh-client
+        state: absent
+
+#CID-1779:Ensure the 'net.ipv4.ip_forward' network parameter is disabled or set to "0"
+
+- name: Ensure net.ipv4.ip_forward is disabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure net.ipv4.ip_forward is set to 0 in sysctl
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '0'
+        state: present
+        reload: yes
+
+    - name: Persist net.ipv4.ip_forward setting in /etc/sysctl.conf
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^#?net\.ipv4\.ip_forward\s*='
+        line: 'net.ipv4.ip_forward = 0'
+
+#CID-12792:Ensure icmp redirects are not accepted
+
+- name: Ensure ICMP redirects are not accepted
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable ICMP redirects for all interfaces
+      sysctl:
+        name: net.ipv4.conf.all.accept_redirects
+        value: '0'
+        state: present
+        reload: yes
+
+    - name: Disable ICMP redirects for the default interface
+      sysctl:
+        name: net.ipv4.conf.default.accept_redirects
+        value: '0'
+        state: present
+        reload: yes
+
+    - name: Persist ICMP redirect settings in /etc/sysctl.conf
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^#?net\.ipv4\.conf\.(all|default)\.accept_redirects\s*='
+        line: 'net.ipv4.conf.\1.accept_redirects = 0'
+        backrefs: yes
+
+#CID-14606:Ensure 'nosuid' option  set on  '/home' partition
+
+- name: Ensure nosuid option is set on /home partition
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure /home is mounted with nosuid option
+      mount:
+        path: /home
+        src: "{{ item.device }}"
+        fstype: "{{ item.fstype }}"
+        opts: "{{ item.opts | join(',') }}"
+        state: mounted
+      with_items: "{{ ansible_mounts }}"
+      when: item.mount == '/home' and 'nosuid' not in item.options
+
+    - name: Update /etc/fstab to ensure nosuid option is set on /home
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^(\S+\s+/home\s+\S+\s+)(\S*)'
+        line: '\1\2,nosuid'
+        backrefs: yes
+
+#CID-17971:Ensure the 'aidecheck.service' service is enabled
+
+- name: Ensure aidecheck.service is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable aidecheck.service
+      systemd:
+        name: aidecheck.service
+        enabled: yes
+
+#CID-9349:Ensure bootloader password is set
+
+- name: Ensure bootloader password is set
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set GRUB password
+      lineinfile:
+        path: /etc/grub.d/40_custom
+        line: 'set superusers="root"'
+        create: yes
+
+    - name: Add bootloader password hash
+      lineinfile:
+        path: /etc/grub.d/40_custom
+        line: 'password_pbkdf2 root grub.pbkdf2.sha512.10000.YOUR_HASH'
+        create: yes
+
+    - name: Update GRUB configuration
+      command: update-grub
+
+#CID-19402:Ensure dhcp server services are not in use
+
+- name: Ensure DHCP server services are not in use
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Stop and disable isc-dhcp-server service if installed
+      service:
+        name: isc-dhcp-server
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Stop and disable dhcpd service if installed
+      service:
+        name: dhcpd
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Ensure isc-dhcp-server package is not installed
+      apt:
+        name: isc-dhcp-server
+        state: absent
+
+    - name: Ensure dhcpd package is not installed
+      apt:
+        name: dhcpd
+        state: absent
+      ignore_errors: yes
+
+#CID-16065:Ensure Ownership and Permission of the audit log file are restricted 
+
+- name: Ensure ownership and permissions of the audit log file are restricted
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure audit log file has correct ownership
+      file:
+        path: /var/log/audit/audit.log
+        owner: root
+        group: root
+
+    - name: Ensure audit log file has correct permissions
+      file:
+        path: /var/log/audit/audit.log
+        mode: '0600'
+    
+#CID-9973:Ensure cron service is enabled
+
+- name: Ensure cron service is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure cron service is started and enabled at boot
+      service:
+        name: cron
+        state: started
+        enabled: yes
+
+#CID-7344:Ensure the 'Ownership' settings for the '/etc/cron.hourly' directory is set to "root"
+
+- name: Ensure ownership of /etc/cron.hourly is set to root
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ownership of /etc/cron.hourly to root
+      file:
+        path: /etc/cron.hourly
+        owner: root
+        group: root
+
+#CID-2239:Ensure sshd PermitRootLogin is disabled
+
+- name: Ensure sshd PermitRootLogin is disabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable root login over SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin\s+'
+        line: 'PermitRootLogin no'
+        state: present
+        create: yes
+        backup: yes
+
+    - name: Restart SSH service to apply changes
+      service:
+        name: ssh
+        state: restarted
+
+#CID-2240:Ensure sshd PermitEmptyPasswords is disabled
+
+- name: Ensure sshd PermitRootLogin is disabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable root login over SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin\s+'
+        line: 'PermitRootLogin no'
+        state: present
+        create: yes
+        backup: yes
+
+    - name: Restart SSH service to apply changes
+      service:
+        name: ssh
+        state: restarted
+
+#CID-18599:Ensure the 'net.ipv6.conf.all.disable_ipv6' setting within the '/etc/sysctl.d/*.conf' and '/usr/lib/sysctl.d/*.conf'  files on the system is disabled
+
+- name: Ensure IPv6 is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure net.ipv6.conf.all.disable_ipv6 is set to 0 in /etc/sysctl.d/*.conf
+      lineinfile:
+        path: "{{ item }}"
+        regexp: '^net\.ipv6\.conf\.all\.disable_ipv6\s*='
+        line: 'net.ipv6.conf.all.disable_ipv6 = 0'
+        state: present
+      with_fileglob:
+        - /etc/sysctl.d/*.conf
+
+    - name: Ensure net.ipv6.conf.all.disable_ipv6 is set to 0 in /usr/lib/sysctl.d/*.conf
+      lineinfile:
+        path: "{{ item }}"
+        regexp: '^net\.ipv6\.conf\.all\.disable_ipv6\s*='
+        line: 'net.ipv6.conf.all.disable_ipv6 = 0'
+        state: present
+      with_fileglob:
+        - /usr/lib/sysctl.d/*.conf
+
+  handlers:
+    - name: reload sysctl
+      command: sysctl --system
+
+#CID-16048:Ensure ufw(Uncomplicated Firewall) package is installed
+
+- name: Ensure ufw package is installed
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install ufw package
+      package:
+        name: ufw
+        state: present
+
+#CID-16049:Ensure the ufw(Uncomplicated Firewall) on the system is enabled
+
+- name: Ensure ufw is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable ufw
+      ufw:
+        state: enabled
+
+#CID-16066:Ensure the Permission of the audit log directory on host is set to "750"
+
+- name: Ensure the permission of the audit log directory is set to 750
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set permissions for the audit log directory
+      file:
+        path: /var/log/audit
+        mode: '0750'
+
+#CID-24932:Ensure the permissions of '*.conf'  and '*.rules' files under '/etc/audit/' directory is set to "640" with root ownership
+
+- name: Ensure permissions and ownership of audit configuration files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set permissions for *.conf and *.rules files under /etc/audit/ to 640
+      file:
+        path: "{{ item }}"
+        mode: '0640'
+      with_fileglob:
+        - /etc/audit/*.conf
+        - /etc/audit/*.rules
+
+    - name: Set ownership for *.conf and *.rules files under /etc/audit/ to root
+      file:
+        path: "{{ item }}"
+        owner: root
+        group: root
+      with_fileglob:
+        - /etc/audit/*.conf
+        - /etc/audit/*.
+        
+#CID-24933:Ensure the ownership of '*.conf' and '*.rules' files under '/etc/audit/' directory is set to "root"
+
+- name: Ensure ownership of audit configuration files is set to root
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ownership for *.conf and *.rules files under /etc/audit/ to root
+      file:
+        path: "{{ item }}"
+        owner: root
+        group: root
+      with_fileglob:
+        - /etc/audit/*.conf
+        - /etc/audit/*.rules
+
+#CID-20597:Ensure the permission and ownership set on '/sbin/auditctl' file is set to "755" with root ownership
+
+- name: Ensure permissions and ownership of /sbin/auditctl
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set permissions and ownership for /sbin/auditctl
+      file:
+        path: /sbin/auditctl
+        mode: '0755'
+        owner: root
+        group: root
+
+#CID-20599:Ensure the permission and ownership set on '/sbin/ausearch' file is set to "755" with root ownership
+
+- name: Ensure permissions and ownership of /sbin/ausearch
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set permissions and ownership for /sbin/ausearch
+      file:
+        path: /sbin/ausearch
+        mode: '0755'
+        owner: root
+        group: root
+
+#CID-20601:Ensure the permission and ownership set on '/sbin/auditd' file is set to "755" with root ownership 
+
+- name: Ensure permissions and ownership of /sbin/auditd
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set permissions and ownership for /sbin/auditd
+      file:
+        path: /sbin/auditd
+        mode: '0755'
+        owner: root
+        group: root
+
+#CID-20729:Ensure audit tools (/sbin/au* and /sbin/audit*) integrity configuration in /etc/aide/aide.conf is configured
+
+- name: Configure AIDE for audit tools integrity
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure AIDE configuration for audit tools
+      lineinfile:
+        path: /etc/aide/aide.conf
+        state: present
+        regexp: '^(/sbin/au\*|/sbin/audit\*)'
+        line: '/sbin/au* FIPSR\n/sbin/audit* FIPSR'
+        insertafter: EOF
+      notify:
+        - update aide database
+
+  handlers:
+    - name: update aide database
+      command: /usr/sbin/aide --update
+      notify:
+        - check aide integrity
+
+    - name: check aide integrity
+      command: /usr/sbin/aide --check
+
+#CID-17131:Ensure the 'ForwardToSyslog' attribute in '/etc/systemd/journald.conf' file is set to "Yes"
+
+- name: Ensure ForwardToSyslog is set to "Yes" in /etc/systemd/journald.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ForwardToSyslog to "Yes"
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?ForwardToSyslog='
+        line: 'ForwardToSyslog=yes'
+        state: present
+      notify:
+        - restart systemd-journald
+
+  handlers:
+    - name: restart systemd-journald
+      service:
+        name: systemd-journald
+        state: restarted
+
+#CID-23776:Ensure 'systemd-journal-remote' package on the system is installed or enabled
+
+- name: Ensure systemd-journal-remote package is installed and enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install systemd-journal-remote package
+      package:
+        name: systemd-journal-remote
+        state: present
+
+    - name: Ensure systemd-journal-remote service is enabled
+      service:
+        name: systemd-journal-remote
+        enabled: yes
+        state: started
+
+#CID-23756:Ensure the 'ServerKeyFile' attribute in '/etc/systemd/journal-upload.conf' file is enabled
+
+- name: Ensure ServerKeyFile is enabled in /etc/systemd/journal-upload.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ServerKeyFile attribute
+      lineinfile:
+        path: /etc/systemd/journal-upload.conf
+        regexp: '^#?ServerKeyFile='
+        line: 'ServerKeyFile=/path/to/your/server/keyfile'
+        state: present
+
+#CID-23757:Ensure 'TrustedCertificateFile' attribute in '/etc/systemd/journal-upload.conf' file is restricted
+
+- name: Ensure TrustedCertificateFile is restricted in /etc/systemd/journal-upload.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Restrict TrustedCertificateFile attribute
+      lineinfile:
+        path: /etc/systemd/journal-upload.conf
+        regexp: '^#?TrustedCertificateFile='
+        line: 'TrustedCertificateFile=/path/to/restricted/certificate'
+        state: present
+
+#CID-26439:Ensure systemd-journal-remote is configured(ServerCertificateFile)
+
+- name: Ensure ServerCertificateFile is configured in /etc/systemd/journal-remote.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ServerCertificateFile attribute
+      lineinfile:
+        path: /etc/systemd/journal-remote.conf
+        regexp: '^#?ServerCertificateFile='
+        line: 'ServerCertificateFile=/path/to/your/server/certificate'
+        state: present
+
+#CID-23777:Ensure 'systemd-journal-upload' service is enabled
+
+- name: Ensure systemd-journal-upload service is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable and start systemd-journal-upload service
+      service:
+        name: systemd-journal-upload
+        enabled: yes
+        state: started
+
+#CID-23778:Ensure 'systemd-journal-remote.socket' service is enabled
+
+- name: Ensure systemd-journal-remote.socket service is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable and start systemd-journal-remote.socket service
+      service:
+        name: systemd-journal-remote.socket
+        enabled: yes
+        state: started
+
+#CID-23747:Ensure 'systemd-journald.service' service is enabled
+
+- name: Ensure systemd-journald.service is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable and start systemd-journald.service
+      service:
+        name: systemd-journald
+        enabled: yes
+        state: started
+
+#CID-17132:Ensure 'Compress' attribute in /etc/systemd/journald.conf file is enabled
+
+- name: Ensure Compress attribute is enabled in /etc/systemd/journald.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set Compress attribute to "yes"
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?Compress='
+        line: 'Compress=yes'
+        state: present
+
+#CID-17133:Ensure 'Storage' attribute in '/etc/systemd/journald.conf' file is set to "persistent"
+
+- name: Ensure Storage attribute is set to "persistent" in /etc/systemd/journald.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set Storage attribute to "persistent"
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?Storage='
+        line: 'Storage=persistent'
+        state: present
+
+#CID-23748:Ensure the 'SystemMaxUse' attribute in '/etc/systemd/journald.conf' file is configured
+
+- name: Ensure SystemMaxUse attribute is configured in /etc/systemd/journald.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set SystemMaxUse attribute
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?SystemMaxUse='
+        line: 'SystemMaxUse=50M'
+        state: present
+
+#CID-23749:Ensure the 'SystemKeepFree' attribute in '/etc/systemd/journald.conf' file is disabled
+
+- name: Ensure SystemKeepFree attribute is disabled in /etc/systemd/journald.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable SystemKeepFree attribute
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?SystemKeepFree='
+        line: 'SystemKeepFree=0'
+        state: present
+
+#CID-23750:Ensure the 'RuntimeMaxUse' attribute in '/etc/systemd/journald.conf' file is disabled
+
+- name: Ensure RuntimeMaxUse attribute is disabled in /etc/systemd/journald.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable RuntimeMaxUse attribute
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?RuntimeMaxUse='
+        line: 'RuntimeMaxUse=0'
+        state: present
+
+#CID-23751:Ensure the 'RuntimeKeepFree' attribute is Disabled 
+
+- name: Ensure RuntimeKeepFree attribute is disabled in /etc/systemd/journald.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable RuntimeKeepFree attribute
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?RuntimeKeepFree='
+        line: 'RuntimeKeepFree=0'
+        state: present
+
+#CID-23752:Ensure  the 'MaxFileSec' attribute is Disabled 
+
+- name: Ensure MaxFileSec attribute is disabled in /etc/systemd/journald.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable MaxFileSec attribute
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?MaxFileSec='
+        line: 'MaxFileSec=0'
+        state: present
+
+#CID-23753:Ensure the permission configured for '/usr/lib/tmpfiles.d/systemd.conf' file is restricted
+
+- name: Ensure permissions for /usr/lib/tmpfiles.d/systemd.conf are restricted
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set permissions for /usr/lib/tmpfiles.d/systemd.conf
+      file:
+        path: /usr/lib/tmpfiles.d/systemd.conf
+        mode: '0640'
+
+#CID-23754:Ensure  the existence of '/etc/tmpfiles.d/systemd.conf' file  is Disabled 
+
+- name: Ensure the existence of /etc/tmpfiles.d/systemd.conf file is disabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove /etc/tmpfiles.d/systemd.conf if it exists
+      file:
+        path: /etc/tmpfiles.d/systemd.conf
+        state: absent
+
+#CID-9335:Ensure the rsyslog service is enabled 
+
+- name: Ensure rsyslog service is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable and start rsyslog service
+      service:
+        name: rsyslog
+        state: started
+        enabled: yes
+
+#CID-17570:Ensure the logging messages for '*.*'(all facilities) in the '/etc/rsyslog.d/*' files is enabled
+
+- name: Ensure logging for '*.*' is enabled in /etc/rsyslog.d/* files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure rsyslog to log all facilities
+      lineinfile:
+        path: /etc/rsyslog.d/00-all-facilities.conf
+        create: yes
+        line: '*.* /var/log/all.log'
+        state: present
+      notify:
+        - Restart rsyslog
+
+  handlers:
+    - name: Restart rsyslog
+      service:
+        name: rsyslog
+        state: restarted
+
+#CID-10666:Ensure the '$FileCreateMode' setting within '/etc/rsyslog.conf' file is configured
+
+- name: Ensure logging for '*.*' is enabled in /etc/rsyslog.d/* files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure rsyslog to log all facilities
+      lineinfile:
+        path: /etc/rsyslog.d/00-all-facilities.conf
+        create: yes
+        line: '*.* /var/log/all.log'
+        state: present
+      notify:
+        - Restart rsyslog
+
+  handlers:
+    - name: Restart rsyslog
+      service:
+        name: rsyslog
+        state: restarted
+
+#CID-19583:Ensure 'FileCreateMode' defined within /etc/rsyslog.d/ files is configured
+
+- name: Ensure logging for '*.*' is enabled in /etc/rsyslog.d/* files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure rsyslog to log all facilities
+      lineinfile:
+        path: /etc/rsyslog.d/00-all-facilities.conf
+        create: yes
+        line: '*.* /var/log/all.log'
+        state: present
+      notify:
+        - Restart rsyslog
+
+  handlers:
+    - name: Restart rsyslog
+      service:
+        name: rsyslog
+        state: restarted
+
+#CID-11705:Ensure the permissions on all SSH private key files is set to "root:root:[640]"
+
+- name: Set permissions on SSH private key files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find all SSH private key files
+      find:
+        paths: /etc/ssh
+        patterns: "*_key"
+        file_type: file
+      register: ssh_private_keys
+
+    - name: Set proper permissions on SSH private keys
+      file:
+        path: "{{ item.path }}"
+        owner: root
+        group: root
+        mode: "0640"
+      loop: "{{ ssh_private_keys.files }}"
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-11704:Ensure the permissions on all SSH public key files is set to "root:root:[640]"
+
+- name: Set permissions on SSH public key files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find all SSH public key files
+      find:
+        paths: /etc/ssh
+        patterns: "*_key.pub"
+        file_type: file
+      register: ssh_public_keys
+
+    - name: Set proper permissions on SSH public keys
+      file:
+        path: "{{ item.path }}"
+        owner: root
+        group: root
+        mode: "0640"
+      loop: "{{ ssh_public_keys.files }}"
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-5381:Ensure the 'UsePAM' setting in the '/etc/ssh/sshd_config' file is set to "Yes"
+
+- name: Configure UsePAM in sshd_config
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure UsePAM is enabled
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^UsePAM"
+        line: "UsePAM yes"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-17996:Ensure the 'MACs' setting in the '/etc/ssh/sshd_config' file is configured
+
+- name: Configure MACs in sshd_config
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set secure MAC algorithms
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^MACs"
+        line: "MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-14400:Ensure the 'kexalgorithms' setting within the /etc/ssh/sshd_config file is configured
+
+- name: Configure kexalgorithms in sshd_config
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set secure key exchange algorithms
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^KexAlgorithms"
+        line: "KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+#CID-5216:Ensure the the 'AllowTcpForwarding' setting in the 'sshd_config' file is disabled
+
+- name: Disable TCP forwarding in SSH
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable AllowTcpForwarding
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^AllowTcpForwarding"
+        line: "AllowTcpForwarding no"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-5284:Ensure the 'MaxStartups' setting in the '/etc/ssh/sshd_config' file is set to "10:30:60"
+
+- name: Configure SSH MaxStartups
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set MaxStartups limit
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^MaxStartups"
+        line: "MaxStartups 10:30:60"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-5373:Ensure the 'MaxSessions' setting in the '/etc/ssh/sshd_config' file is set to 10 or less
+
+- name: Configure SSH MaxSessions
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set MaxSessions limit
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^MaxSessions"
+        line: "MaxSessions 10"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-5281:Ensure the 'LoginGraceTime' setting in the '/etc/ssh/sshd_config' file is restricted
+
+- name: Configure SSH LoginGraceTime
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set LoginGraceTime
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^LoginGraceTime"
+        line: "LoginGraceTime 60"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-17145:Ensure the sudo log file on the host is enabled
+
+- name: Enable sudo logging
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure sudo logging
+      lineinfile:
+        path: /etc/sudoers
+        regexp: "^Defaults\s+logfile="
+        line: 'Defaults logfile="/var/log/sudo.log"'
+        state: present
+      validate: 'visudo -cf %s'
+
+    - name: Create sudo log file
+      file:
+        path: /var/log/sudo.log
+        state: touch
+        owner: root
+        group: root
+        mode: 0640
+#CID-8263:Ensure the installation of 'sudo' on the host is enabled
+
+- name: Ensure sudo package is installed
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install sudo package
+      package:
+        name: sudo
+        state: present
+
+#CID-17126:Ensure the 'use_pty' setting in /etc/sudoers and /etc/sudoers.d/ file is enabled
+
+- name: Enable use_pty in sudo configuration
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure use_pty in sudoers
+      lineinfile:
+        path: /etc/sudoers
+        regexp: "^Defaults\s+use_pty"
+        line: 'Defaults use_pty'
+        state: present
+      validate: 'visudo -cf %s'
+
+#CID-11415:Ensure the NOPASSWD and !authenticate options in the file '/etc/sudoers' is not set sudo
+
+- name: Remove NOPASSWD and !authenticate from sudoers
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove NOPASSWD entries
+      replace:
+        path: /etc/sudoers
+        regexp: 'NOPASSWD:'
+        replace: ''
+      validate: 'visudo -cf %s'
+
+    - name: Remove !authenticate entries
+      replace:
+        path: /etc/sudoers
+        regexp: '!authenticate'
+        replace: ''
+      validate: 'visudo -cf %s'
+
+#CID-18164:Ensure "NOPASSWD|!authenticate" kernel module setting from all files inside sudoers.d dir is not existed or removed
+
+- name: Clean sudoers.d files from insecure settings
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find all files in sudoers.d
+      find:
+        paths: /etc/sudoers.d
+        file_type: file
+      register: sudoers_files
+
+    - name: Remove NOPASSWD and !authenticate from all sudoers.d files
+      replace:
+        path: "{{ item.path }}"
+        regexp: '(NOPASSWD:|!authenticate)'
+        replace: ''
+      loop: "{{ sudoers_files.files }}"
+      validate: 'visudo -cf %s'
+
+#CID-17690:Ensure the 'ucredit' parameter within '/etc/security/pwquality.conf' and '/etc/security/pwquality.conf.d/*.conf' file(s) is enabled
+
+- name: Configure password complexity - ucredit
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ucredit requirement
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^ucredit'
+        line: 'ucredit = -1'
+        state: present
+
+#CID-17691:Ensure the 'lcredit' parameter within '/etc/security/pwquality.conf' and '/etc/security/pwquality.conf.d/*.conf' file(s) is enabled
+
+- name: Configure password complexity - lcredit
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set lcredit requirement
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^lcredit'
+        line: 'lcredit = -1'
+        state: present
+
+#CID-17692:Ensure the 'dcredit' parameter within '/etc/security/pwquality.conf' and '/etc/security/pwquality.conf.d/*.conf' file(s) is enabled
+
+- name: Configure password complexity - dcredit
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set dcredit requirement
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^dcredit'
+        line: 'dcredit = -1'
+        state: present
+
+#CID-17693:Ensure the 'ocredit' parameter within '/etc/security/pwquality.conf' and '/etc/security/pwquality.conf.d/*.conf' file(s) is enabled
+
+- name: Configure password complexity - ocredit
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ocredit requirement
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^ocredit'
+        line: 'ocredit = -1'
+        state: present
+
+#CID-22973:Ensure the 'pam_faillock.so' module in /etc/pam.d/common-auth file is enabled
+
+- name: Configure pam_faillock in common-auth
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable pam_faillock
+      pamd:
+        name: common-auth
+        type: auth
+        control: required
+        module_path: pam_faillock.so
+        arguments: 'preauth silent audit deny=5 unlock_time=900'
+        state: before
+        module_control: sufficient
+
+    - name: Add pam_faillock authfail line
+      pamd:
+        name: common-auth
+        type: auth
+        control: '[default=die]'
+        module_path: pam_faillock.so
+        arguments: 'authfail audit deny=5 unlock_time=900'
+        state: after
+        module_control: sufficient
+#CID-26503:Ensure the lockout for failed password attempts is enabled
+
+- name: Configure account lockout for failed attempts
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set faillock configuration
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^deny ='
+        line: 'deny = 5'
+        state: present
+
+    - name: Configure pam_faillock in system-auth
+      pamd:
+        name: system-auth
+        type: auth
+        control: required
+        module_path: pam_faillock.so
+        arguments: 'preauth silent audit deny=5 unlock_time=900'
+        state: before
+        module_control: sufficient
+
+#CID-20571:Ensure 'fail_interval' setting configured in /etc/security/faillock.conf file is enabled
+
+- name: Configure fail_interval in faillock
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set fail interval
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^fail_interval ='
+        line: 'fail_interval = 900'
+        state: present
+
+#CID-20572:Ensure 'unlock_time' setting configured in /etc/security/faillock.conf file is enabled
+
+- name: Configure unlock_time in faillock
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set unlock time
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^unlock_time ='
+        line: 'unlock_time = 900'
+        state: present
+
+#CID-19663:Ensure the pam_unix module in /etc/pam.d/common-password is enabled
+
+- name: Configure pam_unix in common-password
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure pam_unix is present
+      pamd:
+        name: common-password
+        type: password
+        control: '[success=1 default=ignore]'
+        module_path: pam_unix.so
+        arguments: 'obscure sha512'
+        state: present
+
+#CID-11168:Ensure the ENCRYPT_METHOD setting within /etc/login.defs is enabled
+
+- name: Configure encryption method in login.defs
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ENCRYPT_METHOD to SHA512
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^ENCRYPT_METHOD'
+        line: 'ENCRYPT_METHOD SHA512'
+        state: present
+
+#CID-24935:Ensure the password hashing algorithms for user accounts (/etc/shadow file) is enabled
+
+- name: Ensure SHA512 password hashing
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Update password hashing algorithm
+      command: authconfig --passalgo=sha512 --update
+      when: ansible_distribution == 'RedHat'
+
+    - name: Update password hashing algorithm for Debian
+      command: dpkg-reconfigure -f noninteractive libpam-runtime
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-10733:Ensure the 'Minimum Password Age' for 'users with a password' setting is set to "1"
+
+- name: Configure minimum password age
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set PASS_MIN_DAYS in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MIN_DAYS'
+        line: 'PASS_MIN_DAYS 1'
+        state: present
+
+    - name: Set minimum days for existing users
+      command: chage --mindays 1 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-10170:Ensure the password expiration date within /etc/shadow file is enabled
+
+- name: Ensure password expiration is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set PASS_MAX_DAYS in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MAX_DAYS'
+        line: 'PASS_MAX_DAYS 90'
+        state: present
+
+    - name: Set password max days for existing users
+      command: chage --maxdays 90 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-10735:Ensure the 'Maximum number of days of inactivity allowed before a user account is locked out' for 'users with a password' setting is set to 30 days or less
+
+- name: Configure password inactivity
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set INACTIVE in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^INACTIVE'
+        line: 'INACTIVE 30'
+        state: present
+
+    - name: Set inactive days for existing users
+      command: chage --inactive 30 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-12807:Ensure the 'Last password change' setting for user is enabled
+
+- name: Ensure last password change tracking is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Verify password change dates
+      command: chage -l {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+      register: chage_output
+      changed_when: false
+
+#CID-24734:Ensure the System Accounts with the login shell is set to locked
+
+- name: Lock system accounts
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Get system accounts
+      command: awk -F: '$1!~/(root|sync|shutdown|halt|^\+)/ && $3<1000 && $7!~/(false|nologin)/ {print $1}' /etc/passwd
+      register: system_accounts
+      changed_when: false
+
+    - name: Lock system accounts with login shells
+      user:
+        name: "{{ item }}"
+        shell: /sbin/nologin
+      loop: "{{ system_accounts.stdout_lines }}"
+      when: system_accounts.stdout_lines | length > 0
+
+#CID-24712:Ensure the 'pam_umask' module configured in /etc/pam.d/common-session file is enabled
+
+- name: Configure pam_umask in common-session
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Add pam_umask to common-session
+      pamd:
+        name: common-session
+        type: session
+        control: optional
+        module_path: pam_umask.so
+        arguments: 'umask=0077'
+        state: present
+
+#CID-11401:Ensure the default user umask settings in the /etc/login.defs file is set to "077"
+
+- name: Configure default umask in login.defs
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set UMASK in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^UMASK'
+        line: 'UMASK 077'
+        state: present
+
+#CID-12884:Ensure 'umask' setting in /etc/profile and /etc/profile.d/*.sh files is set to "077"
+
+- name: Configure umask in profile files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set umask in /etc/profile
+      lineinfile:
+        path: /etc/profile
+        regexp: '^umask'
+        line: 'umask 077'
+        state: present
+
+    - name: Ensure umask in profile.d files
+      lineinfile:
+        path: /etc/profile.d/umask.sh
+        line: 'umask 077'
+        create: yes
+        state: present
+
+#CID-4726:Ensure the 'UMASK' setting for the '/etc/bashrc or /etc/bash.bashrc' file is set to "077"
+
+- name: Configure umask in bashrc
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set umask in bashrc
+      lineinfile:
+        path: /etc/bash.bashrc
+        regexp: '^umask'
+        line: 'umask 077'
+        state: present
+
+#CID-14266:Ensure the 'TMOUT' setting defined in the /etc/bash.bashrc is set to "900" seconds
+
+- name: Configure TMOUT in bash.bashrc
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set TMOUT in bash.bashrc
+      lineinfile:
+        path: /etc/bash.bashrc
+        regexp: '^TMOUT'
+        line: 'TMOUT=900'
+        state: present
+
+#CID-14267:Ensure the 'TMOUT' setting defined in /etc/profile and /etc/profile.d/* file is set to "900" seconds
+
+- name: Configure TMOUT in profile files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set TMOUT in /etc/profile
+      lineinfile:
+        path: /etc/profile
+        regexp: '^TMOUT'
+        line: 'TMOUT=900'
+        state: present
+
+    - name: Ensure TMOUT in profile.d files
+      lineinfile:
+        path: /etc/profile.d/tmout.sh
+        line: 'TMOUT=900'
+        create: yes
+        state: present
+
+#CID-10690:Ensure the Permissions set for the '/etc/passwd-' file is set to "644"
+
+- name: Set permissions on /etc/passwd-
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/passwd-
+        mode: "0644"
+        owner: root
+        group: root
+
+#CID-10691:Ensure the Ownership set for the '/etc/passwd-' file is set to "root"
+
+- name: Set ownership on /etc/passwd-
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/passwd-
+        owner: root
+        group: root
+
+#CID-10694:Ensure the Permissions set for the '/etc/group-' file is set to "644"
+
+- name: Set permissions on /etc/group-
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/group-
+        mode: "0644"
+        owner: root
+        group: root
+
+#CID-10695:Ensure the Ownership set for the '/etc/group-' file is set to "root"
+
+- name: Set ownership on /etc/group-
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/group-
+        owner: root
+        group: root
+
+#CID-10692:Ensure the Permissions set for the '/etc/shadow-' file is set to "640"
+
+- name: Set permissions on /etc/shadow-
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/shadow-
+        mode: "0640"
+        owner: root
+        group: shadow
+
+#CID-10693:Ensure the Ownership set for the '/etc/shadow-' file is set to "root"
+
+- name: Set ownership on /etc/shadow-
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/shadow-
+        owner: root
+        group: shadow
+
+#CID-2190:Ensure the 'Permissions' settings for the '/etc/gshadow' file is set to "640"
+
+- name: Set permissions on /etc/gshadow
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/gshadow
+        mode: "0640"
+        owner: root
+        group: shadow
+
+#CID-5081:Ensure the 'Ownership' settings for the '/etc/gshadow' file is set to "root"
+
+- name: Set ownership on /etc/gshadow
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/gshadow
+        owner: root
+        group: shadow
+
+#CID-10696:Ensure the Permissions set for the '/etc/gshadow-' file is set to "640"
+
+- name: Set permissions on /etc/gshadow-
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/gshadow-
+        mode: "0640"
+        owner: root
+        group: shadow
+
+#CID-10697:Ensure the Ownership set for the '/etc/gshadow-' file is set to "root"
+
+- name: Set ownership on /etc/gshadow-
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/gshadow-
+        owner: root
+        group: shadow
+
+#CID-10505:Ensure world writable files and directories are secured
+
+- name: Secure world-writable files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find world-writable files
+      find:
+        paths: /
+        file_type: file
+        mode: "002"
+        recurse: yes
+      register: world_writable_files
+
+    - name: Remove world-writable permission from files
+      file:
+        path: "{{ item.path }}"
+        mode: "g-w,o-w"
+      loop: "{{ world_writable_files.files }}"
+      when: world_writable_files.files | length > 0
+
+#CID-8325:Ensure the 'suid' files, ownership, permissions and programs on the host is not existed
+
+- name: Audit SUID files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find SUID files
+      find:
+        paths: /
+        file_type: file
+        mode: "4000"
+        recurse: yes
+      register: suid_files
+
+    - name: Report SUID files
+      debug:
+        msg: "SUID file found: {{ item.path }}"
+      loop: "{{ suid_files.files }}"
+      when: suid_files.files | length > 0
+#CID-8326:Ensure the SGID files, ownership, permissions, and programs on local filesystem is not existed
+
+- name: Audit SGID files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find SGID files
+      find:
+        paths: /
+        file_type: file
+        mode: "2000"
+        recurse: yes
+      register: sgid_files
+
+    - name: Report SGID files
+      debug:
+        msg: "SGID file found: {{ item.path }}"
+      loop: "{{ sgid_files.files }}"
+      when: sgid_files.files | length > 0
+
+#CID-4104:Ensure the 'user password' field in '/etc/passwd' setting must be assigned a password
+
+- name: Verify all accounts have passwords
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check for passwordless accounts
+      command: awk -F: '($2 == "") {print $1}' /etc/shadow
+      register: passwordless_accounts
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report passwordless accounts
+      debug:
+        msg: "Passwordless account found: {{ item }}"
+      loop: "{{ passwordless_accounts.stdout_lines }}"
+      when: passwordless_accounts.stdout_lines | length > 0
+
+#CID-17140:Ensure 'shadow' group in /etc/group and /etc/passwd file is no users assigned
+
+- name: Verify shadow group has no members
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check shadow group members
+      command: grep '^shadow:' /etc/group
+      register: shadow_group
+      changed_when: false
+
+    - name: Report shadow group members
+      debug:
+        msg: "Shadow group has members: {{ shadow_group.stdout }}"
+      when: shadow_group.stdout.split(':')[3] != ""
+
+#CID-17139:Ensure the PATH directories not owned by root is disabled or not in use
+
+- name: Verify PATH directory ownership
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Get root PATH
+      shell: echo $PATH
+      register: root_path
+      changed_when: false
+
+    - name: Check PATH directory ownership
+      command: stat -c "%U %n" {{ item }}
+      with_items: "{{ root_path.stdout.split(':') }}"
+      register: path_ownership
+      ignore_errors: yes
+
+    - name: Report non-root owned PATH directories
+      debug:
+        msg: "Non-root owned PATH directory: {{ item.stdout }}"
+      loop: "{{ path_ownership.results }}"
+      when: item.stdout is defined and not item.stdout.startswith('root ')
+
+#CID-7417:Ensure 'existing home directories' defined in /etc/passwd is configured
+
+- name: Verify home directory existence
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Get all user home directories
+      command: awk -F: '{ print $1,$6 }' /etc/passwd
+      register: user_homes
+      changed_when: false
+
+    - name: Check home directory existence
+      stat:
+        path: "{{ item.split()[1] }}"
+      with_items: "{{ user_homes.stdout_lines }}"
+      register: home_dirs
+      ignore_errors: yes
+
+    - name: Report missing home directories
+      debug:
+        msg: "Missing home directory for {{ item.item.split()[0] }}: {{ item.item.split()[1] }}"
+      loop: "{{ home_dirs.results }}"
+      when: not item.stat.exists
+
+#CID-10823:Ensure the home directory ownership and permissions for the system accounts defined within the /etc/passwd file is restricted
+
+- name: Secure system account home directories
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Get system accounts
+      command: awk -F: '$3 < 1000 {print $1,$6}' /etc/passwd
+      register: system_accounts
+      changed_when: false
+
+    - name: Set proper ownership and permissions
+      file:
+        path: "{{ item.split()[1] }}"
+        owner: "{{ item.split()[0] }}"
+        group: root
+        mode: "0750"
+      with_items: "{{ system_accounts.stdout_lines }}"
+      when: item.split()[1] != "/"
+
+#CID-10824:Ensure the home directory ownership and permissions for the user accounts (non-system users) defined within the /etc/passwd file is restricted
+
+- name: Secure user account home directories
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Get user accounts
+      command: awk -F: '$3 >= 1000 {print $1,$6}' /etc/passwd
+      register: user_accounts
+      changed_when: false
+
+    - name: Set proper ownership and permissions
+      file:
+        path: "{{ item.split()[1] }}"
+        owner: "{{ item.split()[0] }}"
+        group: "{{ item.split()[0] }}"
+        mode: "0750"
+      with_items: "{{ user_accounts.stdout_lines }}"
+      when: item.split()[1] != "/"
+
+#CID-21554:Ensure the permissions set for '.netrc' file(s) under each user home directory is restricted
+
+- name: Secure .netrc files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find all .netrc files
+      find:
+        paths: /home
+        patterns: ".netrc"
+        recurse: yes
+      register: netrc_files
+
+    - name: Set strict permissions on .netrc files
+      file:
+        path: "{{ item.path }}"
+        mode: "0600"
+      loop: "{{ netrc_files.files }}"
+
+#CID-9705:Ensure the cramfs Filesystems (modprobe) is disabled or not installed
+
+- name: Disable cramfs module
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Blacklist cramfs
+      lineinfile:
+        path: /etc/modprobe.d/cramfs.conf
+        line: "install cramfs /bin/true"
+        create: yes
+        state: present
+
+    - name: Verify cramfs is disabled
+      command: /sbin/modprobe -n -v cramfs
+      register: modprobe_cramfs
+      changed_when: false
+
+    - name: Report if cramfs is not disabled
+      debug:
+        msg: "cramfs module is not properly disabled"
+      when: "'/bin/true' not in modprobe_cramfs.stdout"
+
+#CID-9712:Ensure the cramfs Filesystems (lsmod) is disabled or not installed
+
+- name: Verify cramfs module is not loaded
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check if cramfs module is loaded
+      command: lsmod | grep cramfs
+      register: cramfs_loaded
+      failed_when: false
+      changed_when: false
+
+    - name: Unload cramfs module if loaded
+      command: rmmod cramfs
+      when: cramfs_loaded.rc == 0
+
+#CID-20618:Ensure 'blacklist' setting for 'cramfs' kernel module specified in '/etc/modprobe.d/*' files is configured
+
+- name: Blacklist cramfs kernel module
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure cramfs is blacklisted
+      lineinfile:
+        path: /etc/modprobe.d/blacklist.conf
+        line: "blacklist cramfs"
+        state: present
+      notify:
+        - Update initramfs
+
+  handlers:
+    - name: Update initramfs
+      command: update-initramfs -u
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-22686:Ensure that '/tmp' is enabled using the 'findmnt' command.
+
+- name: Verify /tmp mount
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /tmp mount
+      command: findmnt /tmp
+      register: tmp_mount
+      changed_when: false
+      failed_when: false
+
+    - name: Report if /tmp is not mounted
+      debug:
+        msg: "/tmp is not mounted as a separate filesystem"
+      when: tmp_mount.rc != 0
+
+#CID-10860:Ensure the separate partition is created for /tmp directory
+
+- name: Ensure /tmp partition exists
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /tmp in /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^[^#].*\s/tmp\s'
+        state: present
+      check_mode: yes
+      register: tmp_in_fstab
+
+    - name: Report if /tmp is not in fstab
+      debug:
+        msg: "/tmp is not configured as a separate partition in /etc/fstab"
+      when: not tmp_in_fstab.changed
+
+#CID-14599:Ensure nodev option set on /tmp partition
+
+- name: Configure nodev option for /tmp
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set nodev option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/tmp\s+\w+\s+)(\S+)'
+        replace: '\1\2,nodev'
+      when: tmp_in_fstab.changed
+      notify:
+        - Remount tmp
+
+  handlers:
+    - name: Remount tmp
+      mount:
+        path: /tmp
+        state: remounted
+
+#CID-14603:Ensure noexec option set on /tmp partition
+
+- name: Configure noexec option for /tmp
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set noexec option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/tmp\s+\w+\s+)(\S+)'
+        replace: '\1\2,noexec'
+      when: tmp_in_fstab.changed
+      notify:
+        - Remount tmp
+
+#CID-14602:Ensure nosuid option set on /tmp partition
+
+- name: Configure nosuid option for /tmp
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set nosuid option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/tmp\s+\w+\s+)(\S+)'
+        replace: '\1\2,nosuid'
+      when: tmp_in_fstab.changed
+      notify:
+        - Remount tmp
+
+#CID-13244:Ensure the separate partition is created for /var directory
+
+- name: Ensure /var partition exists
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /var in /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^[^#].*\s/var\s'
+        state: present
+      check_mode: yes
+      register: var_in_fstab
+
+    - name: Report if /var is not in fstab
+      debug:
+        msg: "/var is not configured as a separate partition in /etc/fstab"
+      when: not var_in_fstab.changed
+
+#CID-14605:Ensure 'noexec' option set on '/var/tmp' partition
+
+- name: Configure noexec option for /var/tmp
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set noexec option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/var/tmp\s+\w+\s+)(\S+)'
+        replace: '\1\2,noexec'
+      when: var_in_fstab.changed
+      notify:
+        - Remount var_tmp
+
+  handlers:
+    - name: Remount var_tmp
+      mount:
+        path: /var/tmp
+        state: remounted
+
+#CID-14604:Ensure 'nosuid' option set on '/var/tmp' partition
+
+- name: Configure nosuid option for /var/tmp
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set nosuid option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/var/tmp\s+\w+\s+)(\S+)'
+        replace: '\1\2,nosuid'
+      when: var_in_fstab.changed
+      notify:
+        - Remount var_tmp
+
+#CID-14600:Ensure 'nodev' option set on '/var/tmp' partition
+
+- name: Configure nodev option for /var/tmp
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set nodev option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/var/tmp\s+\w+\s+)(\S+)'
+        replace: '\1\2,nodev'
+      when: var_in_fstab.changed
+      notify:
+        - Remount var_tmp
+
+#CID-13246:Ensure the separate partition is created for /var/log directory
+
+- name: Ensure /var/log partition exists
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /var/log in /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^[^#].*\s/var/log\s'
+        state: present
+      check_mode: yes
+      register: var_log_in_fstab
+
+    - name: Report if /var/log is not in fstab
+      debug:
+        msg: "/var/log is not configured as a separate partition in /etc/fstab"
+      when: not var_log_in_fstab.changed
+
+#CID-13247:Ensure the separate partition is created for /var/log/audit directory
+
+- name: Ensure /var/log/audit partition exists
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /var/log/audit in /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^[^#].*\s/var/log/audit\s'
+        state: present
+      check_mode: yes
+      register: var_log_audit_in_fstab
+
+    - name: Report if /var/log/audit is not in fstab
+      debug:
+        msg: "/var/log/audit is not configured as a separate partition in /etc/fstab"
+      when: not var_log_audit_in_fstab.changed
+
+#CID-14601:Ensure 'nodev' option set on '/home' partition
+
+- name: Configure nodev option for /home
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /home in /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^[^#].*\s/home\s'
+        state: present
+      check_mode: yes
+      register: home_in_fstab
+
+    - name: Set nodev option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/home\s+\w+\s+)(\S+)'
+        replace: '\1\2,nodev'
+      when: home_in_fstab.changed
+      notify:
+        - Remount home
+
+  handlers:
+    - name: Remount home
+      mount:
+        path: /home
+        state: remounted
+
+#CID-14606:Ensure 'nosuid' option set on '/home' partition
+
+- name: Configure nosuid option for /home
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set nosuid option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/home\s+\w+\s+)(\S+)'
+        replace: '\1\2,nosuid'
+      when: home_in_fstab.changed
+      notify:
+        - Remount home
+
+#CID-14598:Ensure 'nodev' option set on '/dev/shm' partition
+
+- name: Configure nodev option for /dev/shm
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /dev/shm in /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^[^#].*\s/dev/shm\s'
+        state: present
+      check_mode: yes
+      register: shm_in_fstab
+
+    - name: Set nodev option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/dev/shm\s+\w+\s+)(\S+)'
+        replace: '\1\2,nodev'
+      when: shm_in_fstab.changed
+      notify:
+        - Remount shm
+
+  handlers:
+    - name: Remount shm
+      mount:
+        path: /dev/shm
+        state: remounted
+
+#CID-14609:Ensure 'noexec' option set on '/dev/shm' partition
+
+- name: Configure noexec option for /dev/shm
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set noexec option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/dev/shm\s+\w+\s+)(\S+)'
+        replace: '\1\2,noexec'
+      when: shm_in_fstab.changed
+      notify:
+        - Remount shm
+
+#CID-14608:Ensure 'nosuid' option set on '/dev/shm' partition
+
+- name: Configure nosuid option for /dev/shm
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set nosuid option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/dev/shm\s+\w+\s+)(\S+)'
+        replace: '\1\2,nosuid'
+      when: shm_in_fstab.changed
+      notify:
+        - Remount shm
+
+#CID-9893:Ensure autofs service is disabled
+
+- name: Disable autofs service
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Stop and disable autofs
+      service:
+        name: autofs
+        state: stopped
+        enabled: no
+
+#CID-17275:Ensure usb-storage kernel module is not available
+
+- name: Disable usb-storage module
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Blacklist usb-storage
+      lineinfile:
+        path: /etc/modprobe.d/blacklist.conf
+        line: "blacklist usb-storage"
+        state: present
+      notify:
+        - Update initramfs
+
+    - name: Verify usb-storage is disabled
+      command: /sbin/modprobe -n -v usb-storage
+      register: modprobe_usb
+      changed_when: false
+
+    - name: Report if usb-storage is not disabled
+      debug:
+        msg: "usb-storage module is not properly disabled"
+      when: "'/bin/true' not in modprobe_usb.stdout"
+
+  handlers:
+    - name: Update initramfs
+      command: update-initramfs -u
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-11160:Ensure package manager repositories are Enabled
+
+- name: Verify package repositories are enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check enabled repos (RedHat)
+      command: yum repolist enabled
+      when: ansible_distribution == 'RedHat'
+      register: yum_repos
+      changed_when: false
+
+    - name: Check enabled repos (Debian/Ubuntu)
+      command: apt-cache policy
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+      register: apt_repos
+      changed_when: false
+
+#CID-16282:Ensure GPG keys value is set to 1
+
+- name: Configure GPG check for packages
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable GPG check in yum
+      lineinfile:
+        path: /etc/yum.conf
+        regexp: '^gpgcheck='
+        line: 'gpgcheck=1'
+        state: present
+      when: ansible_distribution == 'RedHat'
+
+    - name: Enable GPG check in apt
+      replace:
+        path: /etc/apt/apt.conf.d/20auto-upgrades
+        regexp: 'APT::Get::AllowUnauthenticated'
+        replace: 'APT::Get::AllowUnauthenticated "false";'
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-7411:Ensure AIDE is installed on the system
+
+- name: Install AIDE package
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install AIDE
+      package:
+        name: aide
+        state: present
+
+    - name: Initialize AIDE database
+      command: aide --init
+      changed_when: false
+
+#CID-22262:Ensure aide-common package is installed on the host
+
+- name: Install aide-common package
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install aide-common
+      package:
+        name: aide-common
+        state: present
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-7412:Ensure 'periodically scheduled (crontab)' aide check is checked or Enabled
+
+- name: Configure AIDE cron job
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Add AIDE check to cron
+      cron:
+        name: "AIDE check"
+        minute: "0"
+        hour: "5"
+        job: "/usr/sbin/aide --check"
+        user: root
+
+#CID-10859:Ensure 'periodically scheduled (crontab)' aide check (/etc/cron.* and /etc/crontab) is enabled
+
+- name: Verify AIDE cron configuration
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check for AIDE in cron directories
+      find:
+        paths: /etc/cron.d /etc/cron.daily /etc/cron.weekly /etc/cron.monthly
+        patterns: "*aide*"
+      register: aide_cron_files
+      changed_when: false
+
+    - name: Report if AIDE cron is missing
+      debug:
+        msg: "AIDE cron job not found in standard cron locations"
+      when: aide_cron_files.matched == 0
+
+#CID-17971:Ensure the 'aidecheck.service' service is enabled
+
+- name: Configure aidecheck service
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable aidecheck service
+      systemd:
+        name: aidecheck.service
+        enabled: yes
+        state: started
+
+#CID-17972:Ensure the 'aidecheck.timer' service is enabled
+
+- name: Configure aidecheck timer
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable aidecheck timer
+      systemd:
+        name: aidecheck.timer
+        enabled: yes
+        state: started
+
+#CID-17973:Ensure the systemctrl status command o the 'aidecheck.timer' is "Active"
+
+- name: Verify aidecheck timer status
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check aidecheck timer status
+      command: systemctl is-active aidecheck.timer
+      register: aide_timer_status
+      changed_when: false
+
+    - name: Report if aidecheck timer is not active
+      debug:
+        msg: "aidecheck.timer is not active"
+      when: aide_timer_status.stdout != "active"
+
+#CID-9349:Ensure bootloader password is set
+
+- name: Configure bootloader password
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Generate bootloader password hash
+      command: grub2-mkpasswd-pbkdf2
+      register: grub_password
+      changed_when: false
+      when: ansible_distribution == 'RedHat'
+
+    - name: Set bootloader password (RedHat)
+      blockinfile:
+        path: /etc/grub.d/40_custom
+        block: |
+          set superusers="root"
+          password_pbkdf2 root {{ grub_password.stdout_lines[1].split()[-1] }}
+      when: ansible_distribution == 'RedHat'
+
+    - name: Update grub configuration (RedHat)
+      command: grub2-mkconfig -o /boot/grub2/grub.cfg
+      when: ansible_distribution == 'RedHat'
+
+    - name: Set bootloader password (Debian/Ubuntu)
+      replace:
+        path: /etc/grub.d/40_custom
+        regexp: '^#?\s*set superusers='
+        replace: 'set superusers="root"'
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-13272:Ensure bootloader password is set
+
+- name: Verify bootloader password
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check for bootloader password
+      command: grep -q "password_pbkdf2" /boot/grub2/grub.cfg
+      register: grub_password_check
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report if bootloader password is missing
+      debug:
+        msg: "Bootloader password is not configured"
+      when: grub_password_check.rc != 0
+
+#CID-10401:Ensure the ownership of the '/boot/grub/grub.cfg' file is set to "root"
+
+- name: Set ownership of grub.cfg
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set root ownership
+      file:
+        path: /boot/grub2/grub.cfg
+        owner: root
+        group: root
+      when: ansible_distribution == 'RedHat'
+
+    - name: Set root ownership (Debian/Ubuntu)
+      file:
+        path: /boot/grub/grub.cfg
+        owner: root
+        group: root
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-10402:Ensure the permissions of the '/boot/grub/grub.cfg' file is set to "644"
+
+- name: Set permissions of grub.cfg
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set permissions (RedHat)
+      file:
+        path: /boot/grub2/grub.cfg
+        mode: "0600"
+      when: ansible_distribution == 'RedHat'
+
+    - name: Set permissions (Debian/Ubuntu)
+      file:
+        path: /boot/grub/grub.cfg
+        mode: "0600"
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-3558:Ensure root password is set to enabled
+
+- name: Verify root password is set
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check root password in shadow
+      command: awk -F: '$1=="root" && $2!="*" && $2!="!" {print}' /etc/shadow
+      register: root_password_check
+      changed_when: false
+
+    - name: Report if root password is not set
+      debug:
+        msg: "Root password is not set"
+      when: root_password_check.stdout == ""
+
+#CID-7436:Ensure the network parameter 'kernel.randomize_va_space' is set to "2"
+
+- name: Configure ASLR settings
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ASLR to 2
+      sysctl:
+        name: kernel.randomize_va_space
+        value: '2'
+        state: present
+        reload: yes
+
+#CID-10507:Ensure the network parameter 'kernel.randomize_va_space' setting within the '/etc/sysctl.conf' file is set to 2
+
+- name: Configure ASLR in sysctl.conf
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure ASLR setting in sysctl.conf
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^kernel.randomize_va_space'
+        line: 'kernel.randomize_va_space = 2'
+        state: present
+
+#CID-12786:Ensure address space layout randomization is enabled (kernel.randomize_va_space)
+
+- name: Verify ASLR is enabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check ASLR value
+      command: sysctl -n kernel.randomize_va_space
+      register: aslr_value
+      changed_when: false
+
+    - name: Report if ASLR is not enabled
+      debug:
+        msg: "ASLR is not properly configured (current value: {{ aslr_value.stdout }})"
+      when: aslr_value.stdout != "2"
+
+#CID-9223:Ensure the prelink package is removed or uninstalled
+
+- name: Remove prelink package
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Uninstall prelink
+      package:
+        name: prelink
+        state: absent
+
+#CID-24903:Ensure the 'apport' package on the system is disabled or not installed
+
+- name: Remove or disable apport
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable apport (Ubuntu)
+      lineinfile:
+        path: /etc/default/apport
+        regexp: '^enabled='
+        line: 'enabled=0'
+      when: ansible_distribution == 'Ubuntu'
+      notify:
+        - Stop apport
+
+    - name: Remove apport package
+      package:
+        name: apport
+        state: absent
+      when: ansible_distribution == 'Ubuntu'
+
+  handlers:
+    - name: Stop apport
+      service:
+        name: apport
+        state: stopped
+        enabled: no
+
+#CID-24904:Ensure Automatic Error Reporting is not enabled
+
+- name: Disable automatic error reporting
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable whoopsie (Ubuntu)
+      service:
+        name: whoopsie
+        state: stopped
+        enabled: no
+      when: ansible_distribution == 'Ubuntu'
+
+#CID-24911:Ensure 'apport' service is disabled
+
+- name: Ensure apport service is disabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable apport service
+      service:
+        name: apport
+        state: stopped
+        enabled: no
+      when: ansible_distribution == 'Ubuntu'
+
+#CID-10866:Ensure the 'core dump (hard)' setting is disabled or restricted (/etc/security/limits.conf /etc/security/limits.d/*)
+
+- name: Configure core dumps
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable core dumps in limits.conf
+      lineinfile:
+        path: /etc/security/limits.conf
+        regexp: '^\*\s+hard\s+core'
+        line: '* hard core 0'
+        state: present
+
+    - name: Disable core dumps in sysctl
+      sysctl:
+        name: fs.suid_dumpable
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-7435:Ensure the 'fs.suid_dumpable' setting is enabled
+
+- name: Configure suid_dumpable
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set fs.suid_dumpable to 0
+      sysctl:
+        name: fs.suid_dumpable
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-10508:Ensure the 'fs.suid_dumpable' setting is set to "0"
+
+- name: Verify suid_dumpable setting
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check fs.suid_dumpable value
+      command: sysctl -n fs.suid_dumpable
+      register: suid_dumpable_value
+      changed_when: false
+
+    - name: Report if fs.suid_dumpable is not 0
+      debug:
+        msg: "fs.suid_dumpable is not properly configured (current value: {{ suid_dumpable_value.stdout }})"
+      when: suid_dumpable_value.stdout != "0"
+
+#CID-12785:Ensure 'fs.suid_dumpable' parameter is set to 0 in the '/etc/sysctl.d/', '/run/sysctl.d/' or '/usr/lib/sysctl.d/' directories
+
+- name: Configure suid_dumpable in sysctl.d
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure setting in sysctl.d
+      lineinfile:
+        path: /etc/sysctl.d/99-suid-dumpable.conf
+        line: 'fs.suid_dumpable = 0'
+        state: present
+      notify:
+        - Reload sysctl
+
+  handlers:
+    - name: Reload sysctl
+      command: sysctl --system
+
+#CID-11326:Ensure 'AppArmor' package is installed
+
+- name: Install AppArmor
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install AppArmor package
+      package:
+        name: apparmor
+        state: present
+
+#CID-11325:Ensure AppArmor is enabled in the bootloader configuration
+
+- name: Configure AppArmor in bootloader
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable AppArmor in grub
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX='
+        line: 'GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor"'
+        state: present
+      notify:
+        - Update grub
+
+  handlers:
+    - name: Update grub
+      command: update-grub
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-11486:Ensure all AppArmor Profiles are in enforce or complain mode
+
+- name: Configure AppArmor profiles
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set all profiles to enforce mode
+      command: aa-enforce /etc/apparmor.d/*
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Verify profiles are not in disable mode
+      command: aa-status
+      register: aa_status
+      changed_when: false
+
+    - name: Report if any profiles are disabled
+      debug:
+        msg: "Some AppArmor profiles are disabled"
+      when: "'0 profiles are in kill mode' not in aa_status.stdout"
+
+#CID-8123:Ensure any lines containing \m, \r, \s, or \v from the /etc/motd file are removed
+
+- name: Clean MOTD file
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove escape sequences from MOTD
+      replace:
+        path: /etc/motd
+        regexp: '\\[mrsv]'
+        replace: ''
+      notify:
+        - Update MOTD
+
+  handlers:
+    - name: Update MOTD
+      command: /usr/bin/env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin run-parts --lsbsysinit /etc/update-motd.d > /run/motd.dynamic.new
+
+#CID-8122:Ensure any lines containing \m, \r, \s, or \v from the /etc/issue file are removed
+
+- name: Clean issue file
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove escape sequences from issue
+      replace:
+        path: /etc/issue
+        regexp: '\\[mrsv]'
+        replace: ''
+
+#CID-8124:Ensure any lines containing \m, \r, \s, or \v from the /etc/issue.net file are removed
+
+- name: Clean issue.net file
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove escape sequences from issue.net
+      replace:
+        path: /etc/issue.net
+        regexp: '\\[mrsv]'
+        replace: ''
+
+#CID-2265:Ensure access to /etc/motd is configured and set to 644 with root ownership
+
+- name: Configure MOTD permissions
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set MOTD permissions
+      file:
+        path: /etc/motd
+        owner: root
+        group: root
+        mode: "0644"
+
+#CID-5088:Ensure Ownership set for the '/etc/motd' file as root only
+
+- name: Verify MOTD ownership
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check MOTD ownership
+      stat:
+        path: /etc/motd
+      register: motd_stat
+
+    - name: Report non-root ownership
+      debug:
+        msg: "MOTD file has incorrect ownership ({{ motd_stat.stat.pw_name }}:{{ motd_stat.stat.gr_name }})"
+      when: motd_stat.stat.pw_name != "root" or motd_stat.stat.gr_name != "root"
+
+#CID-2264:Ensure access to /etc/issue is set to 644 with root ownership
+
+- name: Configure issue file permissions
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set issue file permissions
+      file:
+        path: /etc/issue
+        owner: root
+        group: root
+        mode: "0644"
+
+#CID-4743:Ensure Ownership set for the '/etc/issue' file as root only
+
+- name: Verify issue file ownership
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check issue file ownership
+      stat:
+        path: /etc/issue
+      register: issue_stat
+
+    - name: Report non-root ownership
+      debug:
+        msg: "Issue file has incorrect ownership ({{ issue_stat.stat.pw_name }}:{{ issue_stat.stat.gr_name }})"
+      when: issue_stat.stat.pw_name != "root" or issue_stat.stat.gr_name != "root"
+
+#CID-2263:Ensure access to /etc/issue.net is set to 644 with root ownership
+
+- name: Configure issue.net file permissions
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set issue.net file permissions
+      file:
+        path: /etc/issue.net
+        owner: root
+        group: root
+        mode: "0644"
+
+#CID-4749:Ensure Ownership set for the '/etc/issue.net' file as root only
+
+- name: Verify issue.net file ownership
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check issue.net file ownership
+      stat:
+        path: /etc/issue.net
+      register: issue_net_stat
+
+    - name: Report non-root ownership
+      debug:
+        msg: "Issue.net file has incorrect ownership ({{ issue_net_stat.stat.pw_name }}:{{ issue_net_stat.stat.gr_name }})"
+      when: issue_net_stat.stat.pw_name != "root" or issue_net_stat.stat.gr_name != "root"
+
+#CID-19113:Ensure GDM autorun-never is enabled in '/etc/dconf/db/*.d/*' files
+
+- name: Configure GDM autorun-never
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Create GDM autorun-never configuration
+      copy:
+        dest: /etc/dconf/db/gdm.d/00-autorun-never
+        content: |
+          [org/gnome/desktop/media-handling]
+          autorun-never=true
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Update dconf
+
+  handlers:
+    - name: Update dconf
+      command: dconf update
+
+#CID-11638:Ensure 'lock-delay' time setting in /etc/dconf/db/.*.d/* is configured
+
+- name: Configure GDM lock delay
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set GDM lock delay
+      copy:
+        dest: /etc/dconf/db/gdm.d/00-lock-delay
+        content: |
+          [org/gnome/desktop/screensaver]
+          lock-delay=uint32 5
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Update dconf
+
+  handlers:
+    - name: Update dconf
+      command: dconf update
+
+#CID-19111:Ensure GDM automatic mounting of removable media is disabled in '/etc/dconf/db/*.d/*' files
+
+- name: Disable GDM auto-mount
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure auto-mount settings
+      copy:
+        dest: /etc/dconf/db/gdm.d/00-no-automount
+        content: |
+          [org/gnome/desktop/media-handling]
+          automount=false
+          automount-open=false
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Update dconf
+
+#CID-19112:Ensure GDM disabling automatic mounting of removable media is not overridden in '/etc/dconf/db/*.d/*' files
+
+- name: Verify no GDM auto-mount overrides
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check for conflicting settings
+      find:
+        paths: /etc/dconf/db/gdm.d
+        patterns: "*.conf"
+        contains: "automount.*true"
+      register: automount_overrides
+      changed_when: false
+
+    - name: Report conflicting settings
+      debug:
+        msg: "Found GDM auto-mount override in {{ item.path }}"
+      loop: "{{ automount_overrides.files }}"
+      when: automount_overrides.matched > 0
+
+#CID-21409:Ensure XDCMP is not enabled in /etc/gdm3/custom.conf file
+
+- name: Disable XDCMP in GDM
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure XDCMP is disabled
+      ini_file:
+        path: /etc/gdm3/custom.conf
+        section: daemon
+        option: RemoteGreeter
+        value: "false"
+        create: yes
+      notify:
+        - Restart GDM
+
+  handlers:
+    - name: Restart GDM
+      service:
+        name: gdm
+        state: restarted
+
+#CID-17279:Ensure time synchronization is in use' daemon on the system
+
+- name: Configure time synchronization
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install chrony (RedHat)
+      package:
+        name: chrony
+        state: present
+      when: ansible_distribution == 'RedHat'
+
+    - name: Install chrony (Debian/Ubuntu)
+      package:
+        name: chrony
+        state: present
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+    - name: Enable and start chronyd
+      service:
+        name: chronyd
+        state: started
+        enabled: yes
+      when: ansible_distribution == 'RedHat'
+
+    - name: Enable and start chrony (Debian/Ubuntu)
+      service:
+        name: chrony
+        state: started
+        enabled: yes
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-11328:Ensure the 'chrony' package is installed
+
+- name: Verify chrony installation
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check chrony package
+      package:
+        name: chrony
+        state: present
+
+#CID-24905:Ensure chrony is configured with authorized timeserver
+
+- name: Configure chrony timeserver
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure chrony servers
+      template:
+        src: chrony.conf.j2
+        dest: /etc/chrony.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Restart chrony
+
+  handlers:
+    - name: Restart chrony
+      service:
+        name: "{{ 'chronyd' if ansible_distribution == 'RedHat' else 'chrony' }}"
+        state: restarted
+
+#CID-24906:Ensure chrony is configured with authorized timeserver
+
+- name: Verify chrony configuration
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check chrony sources
+      command: chronyc sources
+      register: chrony_sources
+      changed_when: false
+
+    - name: Report if no sources configured
+      debug:
+        msg: "No chrony time sources configured"
+      when: "'^\\*' not in chrony_sources.stdout"
+
+#CID-11335:Ensure the chronyd process is enabled
+
+- name: Verify chrony service
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check chrony service status
+      service:
+        name: "{{ 'chronyd' if ansible_distribution == 'RedHat' else 'chrony' }}"
+        enabled: yes
+        state: started
+
+#CID-19105:Ensure 'chrony' service on the system is running
+
+- name: Monitor chrony service
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Verify chrony is running
+      command: systemctl is-active "{{ 'chronyd' if ansible_distribution == 'RedHat' else 'chrony' }}"
+      register: chrony_status
+      changed_when: false
+
+    - name: Report if chrony not running
+      debug:
+        msg: "chrony service is not running"
+      when: chrony_status.rc != 0
+
+#CID-24908:Ensure 'systemd-timesyncd' service is disabled
+
+- name: Disable systemd-timesyncd when using chrony
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Stop and disable systemd-timesyncd
+      service:
+        name: systemd-timesyncd
+        state: stopped
+        enabled: no
+      when: "'chrony' in ansible_facts.packages"
+
+#CID-4997:Ensure a remote NTP server in the '/etc/ntp.conf' file for time synchronization is set to a trusted NTP servers
+
+- name: Configure trusted NTP servers
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure NTP servers
+      replace:
+        path: /etc/ntp.conf
+        regexp: '^server\s+'
+        replace: 'server 0.pool.ntp.org iburst\nserver 1.pool.ntp.org iburst\nserver 2.pool.ntp.org iburst\nserver 3.pool.ntp.org iburst'
+      notify:
+        - Restart NTP
+
+  handlers:
+    - name: Restart NTP
+      service:
+        name: ntpd
+        state: restarted
+
+#CID-10509:Ensure the 'ntp' service is disabled or not installed
+
+- name: Remove or disable NTP when using chrony
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove ntp package
+      package:
+        name: ntp
+        state: absent
+      when: "'chrony' in ansible_facts.packages"
+
+    - name: Disable ntpd service
+      service:
+        name: ntpd
+        state: stopped
+        enabled: no
+      when: "'chrony' not in ansible_facts.packages"
+
+#CID-24909:Ensure 'ntp' service is Disabled
+
+- name: Verify NTP service status
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check NTP service status
+      service:
+        name: ntpd
+        enabled: no
+        state: stopped
+      ignore_errors: yes
+
+#CID-9945:Ensure the nis package is removed or not installed
+
+- name: Remove NIS package
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove nis package
+      package:
+        name: nis
+        state: absent
+
+#CID-9317:Ensure the X Windows System package is removed or not installed
+
+- name: Remove X Windows System
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove xserver-xorg-core (Debian/Ubuntu)
+      package:
+        name: xserver-xorg-core
+        state: absent
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+    - name: Remove xorg-x11-server-Xorg (RedHat)
+      package:
+        name: xorg-x11-server-Xorg
+        state: absent
+      when: ansible_distribution == 'RedHat'
+
+#CID-19400:Ensure avahi daemon services are not in use
+
+- name: Disable avahi-daemon
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove avahi-daemon
+      package:
+        name: avahi-daemon
+        state: absent
+
+    - name: Stop avahi-daemon if present
+      service:
+        name: avahi-daemon
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+#CID-19401:Ensure print server services are not in use
+
+- name: Remove print server services
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove cups (Debian/Ubuntu)
+      package:
+        name: cups
+        state: absent
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+    - name: Remove cups (RedHat)
+      package:
+        name: cups
+        state: absent
+      when: ansible_distribution == 'RedHat'
+
+    - name: Stop cups if present
+      service:
+        name: cups
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+#CID-19402:Ensure dhcp server services are not in use
+
+- name: Remove DHCP server
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove isc-dhcp-server (Debian/Ubuntu)
+      package:
+        name: isc-dhcp-server
+        state: absent
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+    - name: Remove dhcp (RedHat)
+      package:
+        name: dhcp
+        state: absent
+      when: ansible_distribution == 'RedHat'
+
+    - name: Stop dhcpd if present
+      service:
+        name: dhcpd
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+#CID-9891:Ensure ldap server services are not in use
+
+- name: Remove LDAP server packages
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove slapd package
+      package:
+        name: slapd
+        state: absent
+      notify:
+        - Stop slapd
+
+  handlers:
+    - name: Stop slapd
+      service:
+        name: slapd
+        state: stopped
+        enabled: no
+
+#CID-19403:Ensure network file system services are not in use
+
+- name: Remove NFS services
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove NFS server packages
+      package:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - nfs-kernel-server
+        - nfs-common
+        - rpcbind
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+      notify:
+        - Stop NFS services
+
+    - name: Remove NFS server packages (RedHat)
+      package:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - nfs-utils
+        - rpcbind
+      when: ansible_distribution == 'RedHat'
+      notify:
+        - Stop NFS services
+
+  handlers:
+    - name: Stop NFS services
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - nfs-kernel-server
+        - nfs-common
+        - rpcbind
+        - nfs-server
+        - nfs-mountd
+
+#CID-19404:Ensure dns server services are not in use
+
+- name: Remove DNS server packages
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove bind9 (Debian/Ubuntu)
+      package:
+        name: bind9
+        state: absent
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+      notify:
+        - Stop bind9
+
+    - name: Remove bind (RedHat)
+      package:
+        name: bind
+        state: absent
+      when: ansible_distribution == 'RedHat'
+      notify:
+        - Stop named
+
+  handlers:
+    - name: Stop bind9
+      service:
+        name: bind9
+        state: stopped
+        enabled: no
+
+    - name: Stop named
+      service:
+        name: named
+        state: stopped
+        enabled: no
+
+#CID-16055:Ensure 'vsftpd' package is disabled or not installed
+
+- name: Remove vsftpd package
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove vsftpd
+      package:
+        name: vsftpd
+        state: absent
+      notify:
+        - Stop vsftpd
+
+  handlers:
+    - name: Stop vsftpd
+      service:
+        name: vsftpd
+        state: stopped
+        enabled: no
+
+#CID-19405:Ensure web server services are not in use
+
+- name: Remove web server packages
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove apache2 (Debian/Ubuntu)
+      package:
+        name: apache2
+        state: absent
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+      notify:
+        - Stop apache2
+
+    - name: Remove httpd (RedHat)
+      package:
+        name: httpd
+        state: absent
+      when: ansible_distribution == 'RedHat'
+      notify:
+        - Stop httpd
+
+  handlers:
+    - name: Stop apache2
+      service:
+        name: apache2
+        state: stopped
+        enabled: no
+
+    - name: Stop httpd
+      service:
+        name: httpd
+        state: stopped
+        enabled: no
+
+#CID-19406:Ensure message access server services are not in use
+
+- name: Remove mail server packages
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove dovecot
+      package:
+        name: dovecot
+        state: absent
+      notify:
+        - Stop dovecot
+
+    - name: Remove cyrus-imapd
+      package:
+        name: cyrus-imapd
+        state: absent
+      notify:
+        - Stop cyrus-imapd
+
+  handlers:
+    - name: Stop dovecot
+      service:
+        name: dovecot
+        state: stopped
+        enabled: no
+
+    - name: Stop cyrus-imapd
+      service:
+        name: cyrus-imapd
+        state: stopped
+        enabled: no
+
+#CID-19407:Ensure 'dovecot-pop3d' package is not installed or Disabled
+
+- name: Remove dovecot-pop3d
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove dovecot-pop3d
+      package:
+        name: dovecot-pop3d
+        state: absent
+
+#CID-9346:Ensure samba file server services are not in use
+
+- name: Remove Samba packages
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove samba
+      package:
+        name: samba
+        state: absent
+      notify:
+        - Stop smbd
+
+  handlers:
+    - name: Stop smbd
+      service:
+        name: smbd
+        state: stopped
+        enabled: no
+
+#CID-9347:Ensure web proxy server services are not in use
+
+- name: Remove proxy server packages
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove squid
+      package:
+        name: squid
+        state: absent
+      notify:
+        - Stop squid
+
+  handlers:
+    - name: Stop squid
+      service:
+        name: squid
+        state: stopped
+        enabled: no
+
+#CID-19408:Ensure 'snmpd' package is not installed or disabled
+
+- name: Remove SNMP daemon
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove snmpd
+      package:
+        name: snmpd
+        state: absent
+      notify:
+        - Stop snmpd
+
+  handlers:
+    - name: Stop snmpd
+      service:
+        name: snmpd
+        state: stopped
+        enabled: no
+
+#CID-9380:Ensure mail transfer agent is configured for local-only mode
+
+- name: Configure Postfix for local-only
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install postfix if not present
+      package:
+        name: postfix
+        state: present
+      
+    - name: Configure Postfix main.cf
+      replace:
+        path: /etc/postfix/main.cf
+        regexp: '^inet_interfaces\s*='
+        replace: 'inet_interfaces = loopback-only'
+      notify:
+        - Restart postfix
+
+  handlers:
+    - name: Restart postfix
+      service:
+        name: postfix
+        state: restarted
+
+#CID-9952:Ensure the 'rsync' service is not installed
+
+- name: Remove rsync daemon
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove rsync package
+      package:
+        name: rsync
+        state: absent
+      notify:
+        - Stop rsync
+
+  handlers:
+    - name: Stop rsync
+      service:
+        name: rsync
+        state: stopped
+        enabled: no
+
+#CID-10500:Ensure the 'rsync' service is disabled or not installed
+
+- name: Verify rsync status
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check rsync package status
+      package:
+        name: rsync
+        state: absent
+      register: rsync_status
+      ignore_errors: yes
+      
+    - name: Check rsync service status
+      service:
+        name: rsync
+        state: stopped
+        enabled: no
+      when: "'rsync' in ansible_facts.packages"
+
+#CID-9946:Ensure the rsh-client package is removed or not installed
+
+- name: Remove rsh clients
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove rsh-client package
+      package:
+        name: rsh-client
+        state: absent
+
+    - name: Remove rsh-redone-client package (RedHat)
+      package:
+        name: rsh-redone-client
+        state: absent
+      when: ansible_distribution == 'RedHat'
+
+#CID-7943:Ensure the 'talk (client)' package on the host is not installed
+
+- name: Remove talk client
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove talk package
+      package:
+        name: talk
+        state: absent
+
+#CID-7948:Ensure the telnet client is not installed
+
+- name: Remove telnet client
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove telnet package
+      package:
+        name: telnet
+        state: absent
+
+#CID-11323:Ensure the 'ldap_utils' package is not installed or disabled
+
+- name: Remove LDAP utilities
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove ldap-utils (Debian/Ubuntu)
+      package:
+        name: ldap-utils
+        state: absent
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+    - name: Remove openldap-clients (RedHat)
+      package:
+        name: openldap-clients
+        state: absent
+      when: ansible_distribution == 'RedHat'
+
+#CID-19409:Ensure rpcbind services are not in use
+
+- name: Remove rpcbind
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove rpcbind package
+      package:
+        name: rpcbind
+        state: absent
+      notify:
+        - Stop rpcbind
+
+  handlers:
+    - name: Stop rpcbind
+      service:
+        name: rpcbind
+        state: stopped
+        enabled: no
+
+#CID-10155:Ensure 'net.ipv6.conf.all.disable_ipv6' network parameter on the host is disabled or not installed
+
+- name: Disable IPv6
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable IPv6 via sysctl
+      sysctl:
+        name: net.ipv6.conf.all.disable_ipv6
+        value: '1'
+        state: present
+        reload: yes
+
+    - name: Disable IPv6 in kernel parameters
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX='
+        line: 'GRUB_CMDLINE_LINUX="ipv6.disable=1"'
+        state: present
+      notify:
+        - Update grub
+
+  handlers:
+    - name: Update grub
+      command: update-grub
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-1779:Ensure the 'net.ipv4.ip_forward' network parameter is disabled or set to "0"
+
+- name: Disable IP forwarding
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable IPv4 forwarding
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-1780:Ensure the 'net.ipv4.conf.default.send_redirects' network parameter is disabled or set to "0"
+
+- name: Disable ICMP redirect sending by default
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable send_redirects in default config
+      sysctl:
+        name: net.ipv4.conf.default.send_redirects
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-5965:Ensure the 'net.ipv4.conf.all.send_redirects' network parameter is disabled or set to "0"
+
+- name: Disable ICMP redirect sending for all interfaces
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable send_redirects for all interfaces
+      sysctl:
+        name: net.ipv4.conf.all.send_redirects
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-12788:Ensure packet redirect sending is disabled
+
+- name: Verify redirect sending is disabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check all.send_redirects value
+      command: sysctl -n net.ipv4.conf.all.send_redirects
+      register: all_redirects
+      changed_when: false
+
+    - name: Check default.send_redirects value
+      command: sysctl -n net.ipv4.conf.default.send_redirects
+      register: default_redirects
+      changed_when: false
+
+    - name: Report if redirects are enabled
+      debug:
+        msg: "Packet redirect sending is enabled (all: {{ all_redirects.stdout }}, default: {{ default_redirects.stdout }})"
+      when: all_redirects.stdout != "0" or default_redirects.stdout != "0"
+
+#CID-1774:Ensure the 'net.ipv4.conf.all.accept_source_route' network parameter is disabled or set to "0"
+
+- name: Disable source route acceptance for all interfaces
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable accept_source_route for all interfaces
+      sysctl:
+        name: net.ipv4.conf.all.accept_source_route
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-2321:Ensure the 'net.ipv4.conf.default.accept_source_route' network parameter is disabled or set to "0"
+
+- name: Disable source route acceptance by default
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable accept_source_route in default config
+      sysctl:
+        name: net.ipv4.conf.default.accept_source_route
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-12790:Ensure source routed packets are not accepted
+
+- name: Verify source route acceptance is disabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check all.accept_source_route value
+      command: sysctl -n net.ipv4.conf.all.accept_source_route
+      register: all_source_route
+      changed_when: false
+
+    - name: Check default.accept_source_route value
+      command: sysctl -n net.ipv4.conf.default.accept_source_route
+      register: default_source_route
+      changed_when: false
+
+    - name: Report if source routes are accepted
+      debug:
+        msg: "Source routed packets are accepted (all: {{ all_source_route.stdout }}, default: {{ default_source_route.stdout }})"
+      when: all_source_route.stdout != "0" or default_source_route.stdout != "0"
+
+#CID-1768:Ensure the 'all.accept_redirects' setting is set to 0
+
+- name: Disable ICMP redirect acceptance for all interfaces
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable accept_redirects for all interfaces
+      sysctl:
+        name: net.ipv4.conf.all.accept_redirects
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-1769:Ensure the 'default.accept_redirects' setting within the '/etc/sysctl.conf is set to 0
+
+- name: Disable ICMP redirect acceptance by default
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable accept_redirects in default config
+      sysctl:
+        name: net.ipv4.conf.default.accept_redirects
+        value: '0'
+        state: present
+        reload: yes
+
+    - name: Ensure setting in sysctl.conf
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^net.ipv4.conf.default.accept_redirects'
+        line: 'net.ipv4.conf.default.accept_redirects = 0'
+        state: present
+
+#CID-12792:Ensure icmp redirects are not accepted
+
+- name: Verify ICMP redirect acceptance is disabled
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check all.accept_redirects value
+      command: sysctl -n net.ipv4.conf.all.accept_redirects
+      register: all_accept_redirects
+      changed_when: false
+
+    - name: Check default.accept_redirects value
+      command: sysctl -n net.ipv4.conf.default.accept_redirects
+      register: default_accept_redirects
+      changed_when: false
+
+    - name: Report if redirects are accepted
+      debug:
+        msg: "ICMP redirects are accepted (all: {{ all_accept_redirects.stdout }}, default: {{ default_accept_redirects.stdout }})"
+      when: all_accept_redirects.stdout != "0" or default_accept_redirects.stdout != "0"
+
+#CID-1770:Ensure the 'all_secure_redirects' setting is set to 0
+
+- name: Disable secure redirects for all interfaces
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable secure redirects
+      sysctl:
+        name: net.ipv4.conf.all.secure_redirects
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-1771:Ensure the 'default.secure_redirects' setting is set to 0
+
+- name: Disable secure redirects by default
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable default secure redirects
+      sysctl:
+        name: net.ipv4.conf.default.secure_redirects
+        value: '0'
+        state: present
+        reload: yes
+
+#CID-12794:Ensure secure icmp redirects are not accepted
+
+- name: Verify secure redirect settings
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check secure redirects status
+      command: sysctl -n net.ipv4.conf.all.secure_redirects
+      register: secure_redirects_status
+      changed_when: false
+
+    - name: Report if secure redirects are enabled
+      debug:
+        msg: "Secure ICMP redirects are enabled (current value: {{ secure_redirects_status.stdout }})"
+      when: secure_redirects_status.stdout != "0"
+
+#CID-5966:Ensure "net.ipv4.conf.default.log_martians" parameter for logging is set in configuration files
+
+- name: Enable logging of suspicious packets
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable martian packet logging
+      sysctl:
+        name: net.ipv4.conf.default.log_martians
+        value: '1'
+        state: present
+        reload: yes
+
+    - name: Ensure setting in sysctl.conf
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^net.ipv4.conf.default.log_martians'
+        line: 'net.ipv4.conf.default.log_martians = 1'
+        state: present
+
+#CID-12796:Ensure suspicious packets are logged
+
+- name: Verify martian logging
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check log_martians status
+      command: sysctl -n net.ipv4.conf.default.log_martians
+      register: martian_status
+      changed_when: false
+
+    - name: Report if martian logging is disabled
+      debug:
+        msg: "Suspicious packet logging is disabled"
+      when: martian_status.stdout != "1"
+
+#CID-1772:Ensure the 'icmp_echo_ignore_broadcasts' setting within the '/etc/sysctl.conf' file is set to 1
+
+- name: Disable ICMP echo broadcasts
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ignore ICMP broadcast requests
+      sysctl:
+        name: net.ipv4.icmp_echo_ignore_broadcasts
+        value: '1'
+        state: present
+        reload: yes
+
+    - name: Ensure setting in sysctl.conf
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^net.ipv4.icmp_echo_ignore_broadcasts'
+        line: 'net.ipv4.icmp_echo_ignore_broadcasts = 1'
+        state: present
+
+#CID-12798:Ensure broadcast icmp requests are ignored
+
+- name: Verify ICMP broadcast settings
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check ICMP broadcast setting
+      command: sysctl -n net.ipv4.icmp_echo_ignore_broadcasts
+      register: icmp_broadcast_status
+      changed_when: false
+
+    - name: Report if broadcast requests are accepted
+      debug:
+        msg: "ICMP broadcast requests are not ignored"
+      when: icmp_broadcast_status.stdout != "1"
+
+#CID-6836:Ensure bogus icmp responses are ignored
+
+- name: Ignore bogus ICMP responses
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable bogus ICMP response protection
+      sysctl:
+        name: net.ipv4.icmp_ignore_bogus_error_responses
+        value: '1'
+        state: present
+        reload: yes
+
+#CID-10158:Ensure net.ipv4.icmp_ignore_bogus_error_responses' setting within the '/etc/sysctl.conf' file is set to 1
+
+- name: Configure bogus ICMP response setting
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure setting in sysctl.conf
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^net.ipv4.icmp_ignore_bogus_error_responses'
+        line: 'net.ipv4.icmp_ignore_bogus_error_responses = 1'
+        state: present
+      notify:
+        - Reload sysctl
+
+  handlers:
+    - name: Reload sysctl
+      command: sysctl -p
+
+#CID-1775:Ensure the 'net.ipv4.conf.all.rp_filter' network parameter is set to 1
+
+- name: Enable reverse path filtering
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable rp_filter for all interfaces
+      sysctl:
+        name: net.ipv4.conf.all.rp_filter
+        value: '1'
+        state: present
+        reload: yes
+
+#CID-1776:Ensure the 'net.ipv4.tcp_syncookies' kernel parameter is set to 1 at runtime and in the /etc/sysctl.conf file
+
+- name: Enable TCP SYN cookies
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable syncookies
+      sysctl:
+        name: net.ipv4.tcp_syncookies
+        value: '1'
+        state: present
+        reload: yes
+
+    - name: Ensure syncookies setting in sysctl.conf
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^net.ipv4.tcp_syncookies'
+        line: 'net.ipv4.tcp_syncookies = 1'
+        state: present
+
+#CID-12802:Ensure tcp syn cookies is enabled
+
+- name: Verify TCP SYN cookies
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check syncookies status
+      command: sysctl -n net.ipv4.tcp_syncookies
+      register: syncookies_status
+      changed_when: false
+
+    - name: Report if syncookies are disabled
+      debug:
+        msg: "TCP SYN cookies are disabled"
+      when: syncookies_status.stdout != "1"
+
+#CID-22263:Ensure iptables packages are installed
+
+- name: Install iptables
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install iptables package
+      package:
+        name: iptables
+        state: present
+
+#CID-16065:Ensure Ownership and Permission of the audit log file are restricted
+
+- name: Secure audit log files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set audit log permissions
+      file:
+        path: /var/log/audit/audit.log
+        owner: root
+        group: root
+        mode: "0640"
+
+#CID-21399:Ensure audit log files group owner is configured
+
+- name: Verify audit log ownership
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check audit log group
+      stat:
+        path: /var/log/audit/audit.log
+      register: audit_log_stat
+
+    - name: Report incorrect audit log group
+      debug:
+        msg: "Audit log has incorrect group ownership ({{ audit_log_stat.stat.gr_name }})"
+      when: audit_log_stat.stat.gr_name != "root"
+
+#CID-7440:Ensure rsyslog package is installed and enabled
+
+- name: Install and enable rsyslog
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Install rsyslog
+      package:
+        name: rsyslog
+        state: present
+
+    - name: Enable rsyslog service
+      service:
+        name: rsyslog
+        state: started
+        enabled: yes
+
+#CID-5154:Ensure permissions on /etc/crontab is set to 644
+
+- name: Secure crontab permissions
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set crontab permissions
+      file:
+        path: /etc/crontab
+        mode: "0644"
+        owner: root
+        group: root
+
+#CID-7343:Ensure permissions on /etc/cron.hourly are restricted and set to 700
+
+- name: Secure cron.hourly
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set cron.hourly permissions
+      file:
+        path: /etc/cron.hourly
+        mode: "0700"
+        owner: root
+        group: root
+
+#CID-7341:Ensure permissions on /etc/cron.daily are restricted and set to 700
+
+- name: Secure cron.daily
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set cron.daily permissions
+      file:
+        path: /etc/cron.daily
+        mode: "0700"
+        owner: root
+        group: root
+
+#CID-7345:Ensure permissions on /etc/cron.weekly are restricted and set to 600
+
+- name: Secure cron.weekly
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set cron.weekly permissions
+      file:
+        path: /etc/cron.weekly
+        mode: "0600"
+        owner: root
+        group: root
+
+#CID-7347:Ensure permissions on /etc/cron.monthly are restricted and set to 700
+
+- name: Secure cron.monthly directory
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set proper permissions for cron.monthly
+      file:
+        path: /etc/cron.monthly
+        mode: "0700"
+        owner: root
+        group: root
+
+#CID-7339:Ensure permissions on /etc/cron.d is set to 0700
+
+- name: Secure cron.d directory
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set strict permissions for cron.d
+      file:
+        path: /etc/cron.d
+        mode: "0700"
+        owner: root
+        group: root
+
+#CID-5057:Ensure the permissions of the '/etc/cron.allow' file are updated only root and permitted users
+
+- name: Secure cron.allow file
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Create cron.allow if missing
+      file:
+        path: /etc/cron.allow
+        state: touch
+        mode: "0600"
+        owner: root
+        group: root
+
+    - name: Set cron.allow permissions
+      file:
+        path: /etc/cron.allow
+        mode: "0600"
+        owner: root
+        group: root
+
+#CID-1418:Ensure the 'at.deny' file is restricted
+
+- name: Secure at.deny file
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set at.deny permissions
+      file:
+        path: /etc/at.deny
+        mode: "0600"
+        owner: root
+        group: root
+      when: '"at" in ansible_facts.packages'
+
+#CID-4772:Ensure the ownership of 'at' command is set to "root"
+
+- name: Secure at command
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set at command ownership
+      file:
+        path: /usr/bin/at
+        owner: root
+        group: root
+        mode: "0750"
+      when: '"at" in ansible_facts.packages'
+
+#CID-5215:Ensure the 'AllowGroups' setting in the '/etc/ssh/sshd.conf' file is not configured
+
+- name: Remove AllowGroups from sshd_config
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure AllowGroups is commented out
+      replace:
+        path: /etc/ssh/sshd_config
+        regexp: '^AllowGroups'
+        replace: '#AllowGroups'
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-5217:Ensure the 'AllowUsers' setting in the '/etc/ssh/sshd.conf' file is configured as root or permitted users
+
+- name: Configure SSH AllowUsers
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set AllowUsers to root only
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^AllowUsers'
+        line: 'AllowUsers root'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-5224:Ensure the 'DenyGroups' setting in the '/etc/ssh/sshd.conf' file is configured such that other than permitted groups, all groups should be included in this file
+
+- name: Configure SSH DenyGroups
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set DenyGroups to catch-all
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^DenyGroups'
+        line: 'DenyGroups *'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-5225:Ensure the 'DenyUsers' setting in the '/etc/ssh/sshd.conf' file is configured as other than root permitted users, all users should be included
+
+- name: Configure SSH DenyUsers
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set DenyUsers to catch-all except root
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^DenyUsers'
+        line: 'DenyUsers *'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-3598:Ensure sshd LogLevel is set to VERBOSE or INFO
+
+- name: Configure SSH logging level
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set SSH LogLevel to VERBOSE
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^LogLevel'
+        line: 'LogLevel VERBOSE'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-2239:Ensure sshd PermitRootLogin is disabled
+
+- name: Disable SSH root login
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable PermitRootLogin
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-2278:Ensure sshd HostbasedAuthentication is disabled
+
+- name: Disable SSH host-based authentication
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable HostbasedAuthentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^HostbasedAuthentication'
+        line: 'HostbasedAuthentication no'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-2240:Ensure sshd PermitEmptyPasswords is disabled
+
+- name: Disable empty passwords in SSH
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable PermitEmptyPasswords
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitEmptyPasswords'
+        line: 'PermitEmptyPasswords no'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-5279:Ensure sshd PermitUserEnvironment is disabled
+
+- name: Disable SSH user environment
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable PermitUserEnvironment
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitUserEnvironment'
+        line: 'PermitUserEnvironment no'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-2236:Ensure the 'IgnoreRhosts' setting in the '/etc/ssh/sshd_config' file is set to 'yes'
+
+- name: Enable IgnoreRhosts in SSH
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set IgnoreRhosts to yes
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^IgnoreRhosts'
+        line: 'IgnoreRhosts yes'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-2233:Ensure SSH X11 forwarding is disabled
+
+- name: Disable X11 forwarding in SSH
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Disable X11Forwarding
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^X11Forwarding'
+        line: 'X11Forwarding no'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-5220:Ensure the weak ciphers on sshd is not installed on the system
+
+- name: Remove weak SSH ciphers
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure secure ciphers
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^Ciphers'
+        line: 'Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-2241:Ensure SSH warning banner is configured
+
+- name: Configure SSH banner
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Enable banner in sshd_config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^Banner'
+        line: 'Banner /etc/issue.net'
+        state: present
+      notify:
+        - Restart sshd
+
+    - name: Ensure banner file exists
+      file:
+        path: /etc/issue.net
+        state: touch
+        owner: root
+        group: root
+        mode: "0644"
+
+#CID-2234:Ensure SSH MaxAuthTries is set to 4 or less
+
+- name: Configure SSH max authentication attempts
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set MaxAuthTries to 4
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^MaxAuthTries'
+        line: 'MaxAuthTries 4'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-5221:Ensure the 'clientalivecountmax' setting is set to 3
+
+- name: Configure SSH client alive count
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ClientAliveCountMax to 3
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^ClientAliveCountMax'
+        line: 'ClientAliveCountMax 3'
+        state: present
+      notify:
+        - Restart sshd
+
+#CID-5222:Ensure the 'ClientAliveInterval' setting is set to 15
+
+- name: Configure SSH client alive interval
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set ClientAliveInterval to 15 minutes
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^ClientAliveInterval'
+        line: 'ClientAliveInterval 900'
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-6796:Ensure access to the su command is restricted
+
+- name: Restrict su command access
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Configure su permissions
+      pamd:
+        name: su
+        type: auth
+        control: required
+        module_path: pam_wheel.so
+        arguments: 'use_uid'
+        state: updated
+
+    - name: Verify wheel group membership
+      command: grep '^wheel' /etc/group
+      register: wheel_group
+      changed_when: false
+
+    - name: Report if wheel group is empty
+      debug:
+        msg: "Wheel group has no members - consider adding authorized users"
+      when: "'::' in wheel_group.stdout"
+
+#CID-16108:Ensure minimum password length is enforced
+
+- name: Configure minimum password length
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set minlen in pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^minlen'
+        line: 'minlen = 14'
+        state: present
+
+#CID-17292:Ensure password complexity is configured to minlen=14 and minclass=4
+
+- name: Configure password complexity
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set password complexity requirements
+      blockinfile:
+        path: /etc/security/pwquality.conf
+        block: |
+          minlen = 14
+          minclass = 4
+          dcredit = -1
+          ucredit = -1
+          ocredit = -1
+          lcredit = -1
+        create: yes
+
+#CID-2741:Ensure password reuse is limited and set to 5 or more
+
+- name: Configure password reuse limit
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set password reuse limit in common-password
+      pamd:
+        name: common-password
+        type: password
+        control: '[success=1 default=ignore]'
+        module_path: pam_unix.so
+        arguments: 'remember=5'
+        state: after
+        module_control: sufficient
+
+#CID-7420:Ensure 'default Group ID (GID)' setting for the root account is set to "0"
+
+- name: Verify root GID
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check root GID
+      command: grep '^root:' /etc/passwd | cut -d: -f4
+      register: root_gid
+      changed_when: false
+
+    - name: Report if root GID is not 0
+      debug:
+        msg: "Root GID is not 0 (current: {{ root_gid.stdout }})"
+      when: root_gid.stdout != "0"
+
+#CID-1072:Ensure the 'Minimum Password Age' setting is set the value greater than "0"
+
+- name: Configure minimum password age
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set PASS_MIN_DAYS in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MIN_DAYS'
+        line: 'PASS_MIN_DAYS 1'
+        state: present
+
+    - name: Enforce for existing users
+      command: chage --mindays 1 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-3376:Ensure the 'Maximum Password Age' setting is set to "60"
+
+- name: Configure maximum password age
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set PASS_MAX_DAYS in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MAX_DAYS'
+        line: 'PASS_MAX_DAYS 60'
+        state: present
+
+    - name: Enforce for existing users
+      command: chage --maxdays 60 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-1091:Ensure password expiration warning days is 7 or more
+
+- name: Configure password warning period
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set PASS_WARN_AGE in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_WARN_AGE'
+        line: 'PASS_WARN_AGE 7'
+        state: present
+
+    - name: Enforce for existing users
+      command: chage --warndays 7 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-10504:Ensure 'Password Expiration Warning Age' is configured to 7
+
+- name: Verify password warning age
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check PASS_WARN_AGE in login.defs
+      command: grep '^PASS_WARN_AGE' /etc/login.defs
+      register: pass_warn_age
+      changed_when: false
+
+    - name: Report if warning age is not 7
+      debug:
+        msg: "Password warning age is not set to 7 (current: {{ pass_warn_age.stdout }})"
+      when: "'7' not in pass_warn_age.stdout"
+
+#CID-1616:Ensure inactive password lock is configured as 45 days
+
+- name: Configure inactive password lock
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set inactive lock for all users
+      command: chage --inactive 45 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-2152:Ensure permission on /etc/passwd is set to 644
+
+- name: Secure /etc/passwd permissions
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set /etc/passwd permissions
+      file:
+        path: /etc/passwd
+        mode: "0644"
+        owner: root
+        group: root
+
+#CID-4989:Ensure ownership on /etc/passwd should be set to root only
+
+- name: Verify /etc/passwd ownership
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /etc/passwd ownership
+      stat:
+        path: /etc/passwd
+      register: passwd_stat
+
+    - name: Report non-root ownership
+      debug:
+        msg: "/etc/passwd has incorrect ownership ({{ passwd_stat.stat.pw_name }}:{{ passwd_stat.stat.gr_name }})"
+      when: passwd_stat.stat.pw_name != "root" or passwd_stat.stat.gr_name != "root"
+
+#CID-2189:Ensure permission on /etc/group is set to 644
+
+- name: Secure /etc/group permissions
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set /etc/group permissions
+      file:
+        path: /etc/group
+        mode: "0644"
+        owner: root
+        group: root
+
+#CID-4991:Ensure ownership on /etc/group is set to root only
+
+- name: Verify /etc/group ownership
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /etc/group ownership
+      stat:
+        path: /etc/group
+      register: group_stat
+
+    - name: Report non-root ownership
+      debug:
+        msg: "/etc/group has incorrect ownership ({{ group_stat.stat.pw_name }}:{{ group_stat.stat.gr_name }})"
+      when: group_stat.stat.pw_name != "root" or group_stat.stat.gr_name != "root"
+
+#CID-2188:Ensure permissions on /etc/shadow are configured and set to 0000
+
+- name: Secure /etc/shadow permissions
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Set /etc/shadow permissions
+      file:
+        path: /etc/shadow
+        mode: "0000"
+        owner: root
+        group: shadow
+
+#CID-4990:Ensure ownership on /etc/shadow is set to root only
+
+- name: Verify /etc/shadow ownership
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check /etc/shadow ownership
+      stat:
+        path: /etc/shadow
+      register: shadow_stat
+
+    - name: Report non-root ownership
+      debug:
+        msg: "/etc/shadow has incorrect ownership ({{ shadow_stat.stat.pw_name }}:{{ shadow_stat.stat.gr_name }})"
+      when: shadow_stat.stat.pw_name != "root" or shadow_stat.stat.gr_name != "shadow"
+
+#CID-7418:Ensure no unowned or ungrouped files or directories exist
+
+- name: Find unowned files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check for unowned files
+      command: find / -xdev -nouser -o -nogroup
+      register: unowned_files
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report unowned files
+      debug:
+        msg: "Unowned files/directories found: {{ unowned_files.stdout_lines }}"
+      when: unowned_files.stdout_lines | length > 0
+
+#CID-6698:Ensure /etc/shadow password fields are not empty
+
+- name: Check for empty password fields
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find accounts with empty passwords
+      command: awk -F: '($2 == "") {print $1}' /etc/shadow
+      register: empty_passwords
+      changed_when: false
+
+    - name: Report accounts with empty passwords
+      debug:
+        msg: "Accounts with empty passwords: {{ empty_passwords.stdout_lines }}"
+      when: empty_passwords.stdout_lines | length > 0
+
+#CID-5444:Ensure all groups in /etc/passwd exist in /etc/group
+
+- name: Validate group consistency
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check for orphaned groups
+      command: |
+        awk -F: '{print $4}' /etc/passwd | \
+        while read gid; do grep -q -E "^[^:]+:[^:]+:$gid:" /etc/group || echo $gid; done
+      register: orphaned_groups
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report orphaned groups
+      debug:
+        msg: "Orphaned GIDs found in /etc/passwd: {{ orphaned_groups.stdout_lines }}"
+      when: orphaned_groups.stdout_lines | length > 0
+
+#CID-2541:Ensure no duplicate UIDs exist
+
+- name: Check for duplicate UIDs
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find duplicate UIDs
+      command: |
+        awk -F: '{print $3}' /etc/passwd | sort | uniq -d
+      register: duplicate_uids
+      changed_when: false
+
+    - name: Report duplicate UIDs
+      debug:
+        msg: "Duplicate UIDs found: {{ duplicate_uids.stdout_lines }}"
+      when: duplicate_uids.stdout_lines | length > 0
+
+#CID-2542:Ensure no duplicate GIDs exist
+
+- name: Check for duplicate GIDs
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find duplicate GIDs
+      command: |
+        awk -F: '{print $3}' /etc/group | sort | uniq -d
+      register: duplicate_gids
+      changed_when: false
+
+    - name: Report duplicate GIDs
+      debug:
+        msg: "Duplicate GIDs found: {{ duplicate_gids.stdout_lines }}"
+      when: duplicate_gids.stdout_lines | length > 0
+
+#CID-2543:Ensure no duplicate user names exist
+
+- name: Check for duplicate usernames
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find duplicate usernames
+      command: |
+        awk -F: '{print $1}' /etc/passwd | sort | uniq -d
+      register: duplicate_users
+      changed_when: false
+
+    - name: Report duplicate usernames
+      debug:
+        msg: "Duplicate usernames found: {{ duplicate_users.stdout_lines }}"
+      when: duplicate_users.stdout_lines | length > 0
+
+#CID-2544:Ensure no duplicate group names exist
+
+- name: Check for duplicate group names
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find duplicate groups
+      command: |
+        awk -F: '{print $1}' /etc/group | sort | uniq -d
+      register: duplicate_groups
+      changed_when: false
+
+    - name: Report duplicate group names
+      debug:
+        msg: "Duplicate group names found: {{ duplicate_groups.stdout_lines }}"
+      when: duplicate_groups.stdout_lines | length > 0
+
+#CID-6058:Ensure the root user's 'PATH' environment variable does not contain any 'dot (. or :. or .: )' entries
+
+- name: Validate root PATH
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Check root PATH
+      shell: |
+        echo $PATH | grep -q -E '(^|:)(\.|:|\.:)(:|$)'
+      register: root_path_check
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report insecure PATH
+      debug:
+        msg: "Root PATH contains current directory references"
+      when: root_path_check.rc == 0
+
+#CID-5452:Ensure the permission of '.forward' files under 'user's home directory' is set to "600"
+
+- name: Secure .forward files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find .forward files
+      find:
+        paths: /home
+        patterns: .forward
+        recurse: yes
+      register: forward_files
+
+    - name: Set proper permissions
+      file:
+        path: "{{ item.path }}"
+        mode: "0600"
+        owner: "{{ item.stat.pw_name }}"
+        group: "{{ item.stat.gr_name }}"
+      loop: "{{ forward_files.files }}"
+      when: forward_files.files | length > 0
+
+#CID-8071:Ensure the presence of 'User .rhosts' files on the host is not existed
+
+- name: Check for .rhosts files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find .rhosts files
+      find:
+        paths: /home
+        patterns: .rhosts
+        recurse: yes
+      register: rhosts_files
+
+    - name: Report .rhosts files
+      debug:
+        msg: "Insecure .rhosts files found: {{ rhosts_files.files | map(attribute='path') | list }}"
+      when: rhosts_files.files | length > 0
+
+#CID-3936:Ensure users' dot files are not group or world writable
+
+- name: Check for insecure dot files
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Find insecure dot files
+      find:
+        paths: /home
+        patterns: '.*'
+        file_type: file
+        mode: 'g+w,o+w'
+        recurse: yes
+      register: insecure_dotfiles
+
+    - name: Report insecure dot files
+      debug:
+        msg: "Group/world writable dot files found: {{ insecure_dotfiles.files | map(attribute='path') | list }}"
+      when: insecure_dotfiles.files | length > 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
