@@ -1,3 +1,29 @@
+#CID-10690:Ensure the Permissions set for the '/etc/passwd-' file is set to "644"
+
+- name: Ensure permissions for /etc/passwd- are set to 644
+  hosts: all
+  become: true
+  tasks:
+    - name: Set permissions for /etc/passwd- to 644
+      file:
+        path: /etc/passwd-
+        mode: '0644'
+
+#CID-2240:Ensure sshd PermitEmptyPasswords is disabled
+
+- name: Disable empty passwords in SSH
+  hosts: all
+  become: true
+  tasks:
+    - name: Disable PermitEmptyPasswords
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitEmptyPasswords'
+        line: 'PermitEmptyPasswords no'
+        state: present
+      notify:
+        - Restart sshd
+
 #CID-7948:Ensure the telnet client is not installed
 
 - name: Remove telnet client
@@ -8,3 +34,18 @@
       package:
         name: telnet
         state: absent
+
+#CID-14606:Ensure 'nosuid' option set on '/home' partition
+
+- name: Configure nosuid option for /home
+  hosts: all
+  become: true
+  tasks:
+    - name: Set nosuid option in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\s/home\s+\w+\s+)(\S+)'
+        replace: '\1\2,nosuid'
+      when: home_in_fstab.changed
+      notify:
+        - Remount home
