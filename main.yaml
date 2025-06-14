@@ -1,14 +1,10 @@
-CID-2234:Ensure SSH MaxAuthTries is set to 4 or less
+#CID-7948:Ensure the telnet client is not installed
 
-- name: Configure SSH max authentication attempts
+- name: Remove telnet client
   hosts: all
   become: true
   tasks:
-    - name: Set MaxAuthTries to 4
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^MaxAuthTries'
-        line: 'MaxAuthTries 4'
-        state: present
-      notify:
-        - Restart sshd
+    - name: Remove telnet package
+      package:
+        name: telnet
+        state: absent
