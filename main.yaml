@@ -33,6 +33,9 @@
         name: telnet
         state: absent
 
+
+#CID-14606:Ensure 'nosuid' option is set on '/home' partition
+
 - name: Ensure 'nosuid' option is set on '/home' partition
   hosts: all
   become: true
