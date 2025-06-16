@@ -32,3 +32,19 @@
       package:
         name: telnet
         state: absent
+
+- name: Ensure 'nosuid' option is set on '/home' partition
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure 'nosuid' is set for /home in /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^(.*\s+/home\s+.*\s+)(\S.*)$'
+        line: '\1\2,nosuid'
+        backrefs: yes
+      notify:
+        - Remount /home
+  handlers:
+    - name: Remount /home
+      command: mount -o remount /home
