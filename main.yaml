@@ -1,12 +1,12 @@
-#CID-10690:Ensure the Permissions set for the '/etc/passwd-' file is set to "644"
+#CID-2152:Ensure the Permissions set for the '/etc/passwd' file is set to "644"
 
-- name: Ensure permissions for /etc/passwd- are set to 644
+- name: Ensure permissions for /etc/passwd are set to 644
   hosts: all
   become: true
   tasks:
-    - name: Set permissions for /etc/passwd- to 644
+    - name: Set permissions for /etc/passwd to 644
       file:
-        path: /etc/passwd-
+        path: /etc/passwd
         mode: '0644'
 
 #CID-2240:Ensure sshd PermitEmptyPasswords is disabled
