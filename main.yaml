@@ -8,4 +8,18 @@
       file:
         path: /etc/passwd-
         mode: '0644'
-        
+
+#CID-2240:Ensure sshd PermitEmptyPasswords is disabled
+
+- name: Disable empty passwords in SSH
+  hosts: all
+  become: true
+  tasks:
+    - name: Disable PermitEmptyPasswords
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitEmptyPasswords'
+        line: 'PermitEmptyPasswords no'
+        state: present
+      notify:
+        - Restart sshd
