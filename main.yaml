@@ -21,3 +21,14 @@
         regexp: '^#?PermitEmptyPasswords'
         line: 'PermitEmptyPasswords no'
         state: present
+        
+#CID-7948:Ensure the telnet client is not installed
+
+- name: Remove telnet client
+  hosts: all
+  become: true
+  tasks:
+    - name: Remove telnet package
+      package:
+        name: telnet
+        state: absent
