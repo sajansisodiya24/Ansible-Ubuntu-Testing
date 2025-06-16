@@ -11,15 +11,13 @@
 
 #CID-2240:Ensure sshd PermitEmptyPasswords is disabled
 
-- name: Disable empty passwords in SSH
+- name: Ensure sshd PermitEmptyPasswords is disabled
   hosts: all
   become: true
   tasks:
-    - name: Disable PermitEmptyPasswords
+    - name: Set PermitEmptyPasswords to no
       lineinfile:
         path: /etc/ssh/sshd_config
-        regexp: '^PermitEmptyPasswords'
+        regexp: '^#?PermitEmptyPasswords'
         line: 'PermitEmptyPasswords no'
         state: present
-      notify:
-        - Restart sshd
