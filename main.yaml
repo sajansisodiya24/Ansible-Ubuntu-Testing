@@ -61,5 +61,4 @@
         regexp: '^MaxAuthTries'
         line: 'MaxAuthTries 4'
         state: present
-      notify:
-        - Restart sshd
+      
