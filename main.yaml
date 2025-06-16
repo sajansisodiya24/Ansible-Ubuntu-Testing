@@ -48,3 +48,18 @@
   handlers:
     - name: Remount /home
       command: mount -o remount /home
+
+#CID-2234:Ensure SSH MaxAuthTries is set to 4 or less
+
+- name: Configure SSH max authentication attempts
+  hosts: all
+  become: true
+  tasks:
+    - name: Set MaxAuthTries to 4
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^MaxAuthTries'
+        line: 'MaxAuthTries 4'
+        state: present
+      notify:
+        - Restart sshd
