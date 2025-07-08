@@ -64,4 +64,15 @@
         regexp: '^MaxAuthTries'
         line: 'MaxAuthTries 4'
         state: present
+
+#CID-16048:Ensure ufw package is installed
+---
+- name: Ensure ufw package is installed
+  hosts: all
+  become: true
+  tasks:
+    - name: Install ufw package
+      package:
+        name: ufw
+        state: present
       
