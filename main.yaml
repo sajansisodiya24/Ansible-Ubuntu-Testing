@@ -8,4 +8,4 @@
       file:
         path: /var/log/audit
         mode: '0750'
-        state: directory
+        
