@@ -77,20 +77,12 @@
         state: present
 
  #CID-16049:Ensure the ufw(Uncomplicated Firewall) on the system is enabled
+ 
 - name: Ensure ufw is enabled
   hosts: all
   become: true
   tasks:
     - name: Enable ufw
-      command: ufw enable
+      command: ufw --force enable
       register: ufw_enable
-      changed_when: "'already enabled' not in ufw_enable.stdout"
-
-    - name: Ensure ufw is active
-      command: ufw status
-      register: ufw_status
-      changed_when: false
-
-    - name: Display UFW status
-      debug:
-        msg: "{{ ufw_status.stdout }}"
+      changed_when: "'Firewall is active and enabled' in ufw_enable.stdout"
