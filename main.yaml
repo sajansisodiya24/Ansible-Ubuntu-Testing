@@ -1,4 +1,4 @@
-#CID-16049:Ensure the ufw(Uncomplicated Firewall) on the system is enabled
+#CID-16066:Ensure the Permission of the audit log directory on host is set to "750"
  
 - name: Ensure ufw is enabled
   hosts: all
