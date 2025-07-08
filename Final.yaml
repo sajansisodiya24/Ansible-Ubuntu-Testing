@@ -76,8 +76,8 @@
         name: ufw
         state: present
 
- #CID-16049:Ensure the ufw(Uncomplicated Firewall) on the system is enabled
- 
+ #CID-16066:Ensure audit log directory permissions are set to 750
+
 - name: Ensure ufw is enabled
   hosts: all
   become: true
@@ -86,3 +86,30 @@
       command: ufw --force enable
       register: ufw_enable
       changed_when: "'Firewall is active and enabled' in ufw_enable.stdout"
+
+ #CID-24932:Ensure the permissions of '*.conf'  and '*.rules' files under '/etc/audit/' directory is set to "640" with root ownership
+
+- name: Ensure permissions and ownership of audit config and rules files
+  hosts: all
+  become: true
+  tasks:
+    - name: Set permissions and ownership for *.conf files
+      file:
+        path: "{{ item }}"
+        mode: '0640'
+        owner: root
+        group: root
+      with_fileglob:
+        - /etc/audit/*.conf
+
+    - name: Set permissions and ownership for *.rules files
+      file:
+        path: "{{ item }}"
+        mode: '0640'
+        owner: root
+        group: root
+      with_fileglob:
+        - /etc/audit/*.rules
+ 
+
+
