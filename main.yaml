@@ -1,10 +1,11 @@
 #CID-16066:Ensure the Permission of the audit log directory on host is set to "750"
  
-- name: Ensure ufw is enabled
+- name: Ensure audit log directory permissions are set to 750
   hosts: all
   become: true
   tasks:
-    - name: Enable ufw
-      command: ufw --force enable
-      register: ufw_enable
-      changed_when: "'Firewall is active and enabled' in ufw_enable.stdout"
+    - name: Set permissions on audit log directory
+      file:
+        path: /var/log/audit
+        mode: '0750'
+        state: directory
