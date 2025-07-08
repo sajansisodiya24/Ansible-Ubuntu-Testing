@@ -1,23 +1,10 @@
-#CID-16066:Ensure the Permission of the audit log directory on host is set to "750"
-#---
-#- name: Ensure audit log directory permissions are set to 750
- # hosts: all
-  #become: true
-  #tasks:
-   # - name: Set permissions on audit log directory
-    # file:
-    #   path: /var/log/audit
-     #   mode: '0750'
-        
-#CID-2240:Ensure sshd PermitEmptyPasswords is disabled
 
-- name: Ensure sshd PermitEmptyPasswords is disabled
+- name: Ensure audit log directory permissions are set to 750
   hosts: all
   become: true
   tasks:
-    - name: Set PermitEmptyPasswords to no
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?PermitEmptyPasswords'
-        line: 'PermitEmptyPasswords no'
-        state: present
+    - name: Set permissions on audit log directory
+      file:
+        path: /var/log/audit
+        mode: '0750'
+        state: directory
