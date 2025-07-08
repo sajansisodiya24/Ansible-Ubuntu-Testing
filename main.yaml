@@ -1,5 +1,5 @@
 #CID-16066:Ensure the Permission of the audit log directory on host is set to "750"
- 
+---
 - name: Ensure audit log directory permissions are set to 750
   hosts: all
   become: true
