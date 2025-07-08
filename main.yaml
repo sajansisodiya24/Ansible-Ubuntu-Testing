@@ -1,10 +1,22 @@
 
-- name: Ensure audit log directory permissions are set to 750
+- name: Ensure permissions and ownership of audit config and rules files
   hosts: all
   become: true
   tasks:
-    - name: Set permissions on audit log directory
+    - name: Set permissions and ownership for *.conf files
       file:
-        path: /var/log/audit
-        mode: '0750'
-        state: directory
+        path: "{{ item }}"
+        mode: '0640'
+        owner: root
+        group: root
+      with_fileglob:
+        - /etc/audit/*.conf
+
+    - name: Set permissions and ownership for *.rules files
+      file:
+        path: "{{ item }}"
+        mode: '0640'
+        owner: root
+        group: root
+      with_fileglob:
+        - /etc/audit/*.rules
