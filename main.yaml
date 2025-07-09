@@ -1,11 +1,11 @@
-
-- name: Ensure permissions and ownership of /sbin/auditctl
+---
+- name: Ensure permissions and ownership of /sbin/ausearch
   hosts: all
   become: true
   tasks:
-    - name: Set permissions and ownership for /sbin/auditctl
+    - name: Set permissions and ownership for /sbin/ausearch
       file:
-        path: /sbin/auditctl
+        path: /sbin/ausearch
         mode: '0755'
         owner: root
         group: root
