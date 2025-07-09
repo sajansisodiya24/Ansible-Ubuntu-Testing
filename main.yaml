@@ -1,9 +1,20 @@
----
-- name: Ensure rsyslog service is enabled
+
+- name: Ensure logging for all facilities is enabled in /etc/rsyslog.d/*
   hosts: all
   become: true
   tasks:
-    - name: Enable rsyslog service
-      systemd:
+    - name: Ensure *.* logging is configured in /etc/rsyslog.d/
+      blockinfile:
+        path: "/etc/rsyslog.d/99-all-facilities.conf"
+        create: yes
+        block: |
+          # Log all facilities and all severities
+          *.* /var/log/all.log
+      notify:
+        - Restart rsyslog
+
+  handlers:
+    - name: Restart rsyslog
+      service:
         name: rsyslog
-        enabled: yes
+        state: restarted
