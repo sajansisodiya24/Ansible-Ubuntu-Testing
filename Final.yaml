@@ -111,5 +111,115 @@
       with_fileglob:
         - /etc/audit/*.rules
  
+ #CID-24933:Ensure the ownership of '*.conf' and '*.rules' files under '/etc/audit/' directory is set to "root"
+ 
+- name: Ensure ownership of audit configuration and rules files
+  hosts: all
+  become: true
+  tasks:
+    - name: Set ownership for *.conf files
+      file:
+        path: "{{ item }}"
+        owner: root
+        group: root
+      with_fileglob:
+        - /etc/audit/*.conf
+
+    - name: Set ownership for *.rules files
+      file:
+        path: "{{ item }}"
+        owner: root
+        group: root
+      with_fileglob:
+        - /etc/audit/*.rules
+        
+#CID-23747: Ensure 'systemd-journald.service' service is enabled
+
+- name: Ensure systemd-journald.service is enabled
+  hosts: all
+  become: true
+  tasks:
+    - name: Enable systemd-journald.service
+      systemd:
+        name: systemd-journald.service
+        enabled: yes
+
+#CID-9335: Ensure the rsyslog service is enabled
+
+- name: Ensure rsyslog service is enabled
+  hosts: all
+  become: true
+  tasks:
+    - name: Enable rsyslog service
+      systemd:
+        name: rsyslog
+        enabled: yes
+
+#CID-17570: Ensure the logging messages for '*.*'(all facilities) in the '/etc/rsyslog.d/*' files is enabled
+---
+- name: Ensure logging for all facilities is enabled in /etc/rsyslog.d/*
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure *.* logging is configured in /etc/rsyslog.d/
+      blockinfile:
+        path: "/etc/rsyslog.d/99-all-facilities.conf"
+        create: yes
+        block: |
+          # Log all facilities and all severities
+          *.* /var/log/all.log
+      notify:
+        - Restart rsyslog
+
+  handlers:
+    - name: Restart rsyslog
+      service:
+        name: rsyslog
+        state: restarted
+
+#CID-10666: Ensure the '$FileCreateMode' setting within '/etc/rsyslog.conf' file is configured
+
+- name: Ensure $FileCreateMode is configured in /etc/rsyslog.conf
+  hosts: all
+  become: true
+  tasks:
+    - name: Set $FileCreateMode in /etc/rsyslog.conf
+      lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^\$FileCreateMode'
+        line: '$FileCreateMode 0640'
+        state: present
+        insertafter: '^#.*Global Directives'
+      notify:
+        - Restart rsyslog
+
+  handlers:
+    - name: Restart rsyslog
+      service:
+        name: rsyslog
+        state: restarted
+        
+#CID-19583: Ensure 'FileCreateMode' defined within /etc/rsyslog.d/ files is configured
+
+- name: Ensure $FileCreateMode is configured in /etc/rsyslog.conf
+  hosts: all
+  become: true
+  tasks:
+    - name: Set $FileCreateMode in /etc/rsyslog.conf
+      lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^\$FileCreateMode'
+        line: '$FileCreateMode 0640'
+        state: present
+        insertafter: '^#.*Global Directives'
+      notify:
+        - Restart rsyslog
+
+  handlers:
+    - name: Restart rsyslog
+      service:
+        name: rsyslog
+        state: restarted
+
 
 
