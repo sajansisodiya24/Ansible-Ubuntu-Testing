@@ -1,21 +1,19 @@
 
-- name: Ensure permissions and ownership of audit config and rules files
+- name: Ensure ownership of audit configuration and rules files
   hosts: all
   become: true
   tasks:
-    - name: Set permissions and ownership for *.conf files
+    - name: Set ownership for *.conf files
       file:
         path: "{{ item }}"
-        mode: '0640'
         owner: root
         group: root
       with_fileglob:
         - /etc/audit/*.conf
 
-    - name: Set permissions and ownership for *.rules files
+    - name: Set ownership for *.rules files
       file:
         path: "{{ item }}"
-        mode: '0640'
         owner: root
         group: root
       with_fileglob:
