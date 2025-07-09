@@ -1,9 +1,9 @@
-
-- name: Ensure systemd-journald.service is enabled
+---
+- name: Ensure rsyslog service is enabled
   hosts: all
   become: true
   tasks:
-    - name: Enable systemd-journald.service
+    - name: Enable rsyslog service
       systemd:
-        name: systemd-journald.service
+        name: rsyslog
         enabled: yes
