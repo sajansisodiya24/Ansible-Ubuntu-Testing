@@ -1,11 +1,11 @@
 
-- name: Ensure permissions and ownership of /sbin/ausearch
+- name: Ensure permissions and ownership of /sbin/auditd
   hosts: all
   become: true
   tasks:
-    - name: Set permissions and ownership for /sbin/ausearch
+    - name: Set permissions and ownership for /sbin/auditd
       file:
-        path: /sbin/ausearch
+        path: /sbin/auditd
         mode: '0755'
         owner: root
         group: root
