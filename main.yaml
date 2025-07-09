@@ -1,15 +1,15 @@
 
-- name: Ensure logging for all facilities is enabled in /etc/rsyslog.d/*
+- name: Ensure $FileCreateMode is configured in /etc/rsyslog.conf
   hosts: all
   become: true
   tasks:
-    - name: Ensure *.* logging is configured in /etc/rsyslog.d/
-      blockinfile:
-        path: "/etc/rsyslog.d/99-all-facilities.conf"
-        create: yes
-        block: |
-          # Log all facilities and all severities
-          *.* /var/log/all.log
+    - name: Set $FileCreateMode in /etc/rsyslog.conf
+      lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^\$FileCreateMode'
+        line: '$FileCreateMode 0640'
+        state: present
+        insertafter: '^#.*Global Directives'
       notify:
         - Restart rsyslog
 
