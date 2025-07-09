@@ -1,4 +1,4 @@
----
+
 - name: Ensure permissions and ownership of /sbin/ausearch
   hosts: all
   become: true
