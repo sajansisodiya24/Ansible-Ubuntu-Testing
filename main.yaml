@@ -1,5 +1,5 @@
----
-- name: Ensure permissions and ownership for /sbin/auditctl
+
+- name: Ensure permissions and ownership of /sbin/auditctl
   hosts: all
   become: true
   tasks:
