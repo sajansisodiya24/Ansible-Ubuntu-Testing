@@ -1,15 +1,32 @@
-
-- name: Ensure $FileCreateMode is configured in /etc/rsyslog.conf
+---
+- name: Ensure remote log host is configured in rsyslog
   hosts: all
   become: true
   tasks:
-    - name: Set $FileCreateMode in /etc/rsyslog.conf
+    - name: Ensure remote log host is set in /etc/rsyslog.conf
       lineinfile:
         path: /etc/rsyslog.conf
-        regexp: '^\$FileCreateMode'
-        line: '$FileCreateMode 0640'
+        regexp: '^\*\.\* @@remote-log-host.example.com:514'
+        line: '*.* @@remote-log-host.example.com:514'
         state: present
-        insertafter: '^#.*Global Directives'
+        insertafter: EOF
+      notify:
+        - Restart rsyslog
+
+    - name: Get IncludeConfig files from /etc/rsyslog.conf
+      shell: "awk '/^\\$IncludeConfig/ {print $2}' /etc/rsyslog.conf"
+      register: include_files
+      changed_when: false
+
+    - name: Ensure remote log host is set in included configuration files
+      lineinfile:
+        path: "{{ item }}"
+        regexp: '^\*\.\* @@remote-log-host.example.com:514'
+        line: '*.* @@remote-log-host.example.com:514'
+        state: present
+        insertafter: EOF
+      loop: "{{ include_files.stdout_lines }}"
+      when: include_files.stdout_lines | length > 0
       notify:
         - Restart rsyslog
 
