@@ -1,20 +1,11 @@
-
-- name: Ensure ownership of audit configuration and rules files
+---
+- name: Ensure permissions and ownership for /sbin/auditctl
   hosts: all
   become: true
   tasks:
-    - name: Set ownership for *.conf files
+    - name: Set permissions and ownership for /sbin/auditctl
       file:
-        path: "{{ item }}"
+        path: /sbin/auditctl
+        mode: '0755'
         owner: root
         group: root
-      with_fileglob:
-        - /etc/audit/*.conf
-
-    - name: Set ownership for *.rules files
-      file:
-        path: "{{ item }}"
-        owner: root
-        group: root
-      with_fileglob:
-        - /etc/audit/*.rules
