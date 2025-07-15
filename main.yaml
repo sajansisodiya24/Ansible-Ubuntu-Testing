@@ -1,37 +1,10 @@
----
-- name: Ensure remote log host is configured in rsyslog
+#CID-2152:Ensure the Permissions set for the '/etc/passwd' file is set to "644"
+
+- name: Ensure permissions for /etc/passwd are set to 644
   hosts: all
   become: true
   tasks:
-    - name: Ensure remote log host is set in /etc/rsyslog.conf
-      lineinfile:
-        path: /etc/rsyslog.conf
-        regexp: '^\*\.\* @@remote-log-host.example.com:514'
-        line: '*.* @@remote-log-host.example.com:514'
-        state: present
-        insertafter: EOF
-      notify:
-        - Restart rsyslog
-
-    - name: Get IncludeConfig files from /etc/rsyslog.conf
-      shell: "awk '/^\\$IncludeConfig/ {print $2}' /etc/rsyslog.conf"
-      register: include_files
-      changed_when: false
-
-    - name: Ensure remote log host is set in included configuration files
-      lineinfile:
-        path: "{{ item }}"
-        regexp: '^\*\.\* @@remote-log-host.example.com:514'
-        line: '*.* @@remote-log-host.example.com:514'
-        state: present
-        insertafter: EOF
-      loop: "{{ include_files.stdout_lines }}"
-      when: include_files.stdout_lines | length > 0
-      notify:
-        - Restart rsyslog
-
-  handlers:
-    - name: Restart rsyslog
-      service:
-        name: rsyslog
-        state: restarted
+    - name: Set permissions for /etc/passwd to 644
+      file:
+        path: /etc/passwd
+        mode: '0644'
