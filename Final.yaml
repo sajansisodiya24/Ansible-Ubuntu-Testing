@@ -221,6 +221,906 @@
         name: rsyslog
         state: restarted
 
+#------
+
+#CID-11705:Ensure the permissions on all SSH private key files is set to "root:root:[640]"
+---
+- name: Set permissions on SSH private key files
+  hosts: all
+  become: true
+  tasks:
+    - name: Find all SSH private key files
+      find:
+        paths: /etc/ssh
+        patterns: "*_key"
+        file_type: file
+      register: ssh_private_keys
+
+    - name: Set proper permissions on SSH private keys
+      file:
+        path: "{{ item.path }}"
+        owner: root
+        group: root
+        mode: "0640"
+      loop: "{{ ssh_private_keys.files }}"
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-11704:Ensure the permissions on all SSH public key files is set to "root:root:[640]"
+---
+- name: Set permissions on SSH public key files
+  hosts: all
+  become: true
+  tasks:
+    - name: Find all SSH public key files
+      find:
+        paths: /etc/ssh
+        patterns: "*_key.pub"
+        file_type: file
+      register: ssh_public_keys
+
+    - name: Set proper permissions on SSH public keys
+      file:
+        path: "{{ item.path }}"
+        owner: root
+        group: root
+        mode: "0640"
+      loop: "{{ ssh_public_keys.files }}"
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-5381:Ensure the 'UsePAM' setting in the '/etc/ssh/sshd_config' file is set to "Yes"
+---
+- name: Configure UsePAM in sshd_config
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure UsePAM is enabled
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^UsePAM"
+        line: "UsePAM yes"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-17996:Ensure the 'MACs' setting in the '/etc/ssh/sshd_config' file is configured
+---
+- name: Configure MACs in sshd_config
+  hosts: all
+  become: true
+  tasks:
+    - name: Set secure MAC algorithms
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^MACs"
+        line: "MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-14400:Ensure the 'kexalgorithms' setting within the /etc/ssh/sshd_config file is configured
+---
+- name: Configure kexalgorithms in sshd_config
+  hosts: all
+  become: true
+  tasks:
+    - name: Set secure key exchange algorithms
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^KexAlgorithms"
+        line: "KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+#CID-5216:Ensure the the 'AllowTcpForwarding' setting in the 'sshd_config' file is disabled
+---
+- name: Disable TCP forwarding in SSH
+  hosts: all
+  become: true
+  tasks:
+    - name: Disable AllowTcpForwarding
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^AllowTcpForwarding"
+        line: "AllowTcpForwarding no"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-5284:Ensure the 'MaxStartups' setting in the '/etc/ssh/sshd_config' file is set to "10:30:60"
+---
+- name: Configure SSH MaxStartups
+  hosts: all
+  become: true
+  tasks:
+    - name: Set MaxStartups limit
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^MaxStartups"
+        line: "MaxStartups 10:30:60"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-5373:Ensure the 'MaxSessions' setting in the '/etc/ssh/sshd_config' file is set to 10 or less
+---
+- name: Configure SSH MaxSessions
+  hosts: all
+  become: true
+  tasks:
+    - name: Set MaxSessions limit
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^MaxSessions"
+        line: "MaxSessions 10"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-5281:Ensure the 'LoginGraceTime' setting in the '/etc/ssh/sshd_config' file is restricted
+---
+- name: Configure SSH LoginGraceTime
+  hosts: all
+  become: true
+  tasks:
+    - name: Set LoginGraceTime
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^LoginGraceTime"
+        line: "LoginGraceTime 60"
+        state: present
+      notify:
+        - Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+#CID-17145:Ensure the sudo log file on the host is enabled
+---
+- name: Enable sudo logging
+  hosts: all
+  become: true
+  tasks:
+    - name: Configure sudo logging
+      lineinfile:
+        path: /etc/sudoers
+        regexp: "^Defaults\s+logfile="
+        line: 'Defaults logfile="/var/log/sudo.log"'
+        state: present
+      validate: 'visudo -cf %s'
+
+    - name: Create sudo log file
+      file:
+        path: /var/log/sudo.log
+        state: touch
+        owner: root
+        group: root
+        mode: 0640
+#CID-8263:Ensure the installation of 'sudo' on the host is enabled
+---
+- name: Ensure sudo package is installed
+  hosts: all
+  become: true
+  tasks:
+    - name: Install sudo package
+      package:
+        name: sudo
+        state: present
+
+#CID-17126:Ensure the 'use_pty' setting in /etc/sudoers and /etc/sudoers.d/ file is enabled
+---
+- name: Enable use_pty in sudo configuration
+  hosts: all
+  become: true
+  tasks:
+    - name: Configure use_pty in sudoers
+      lineinfile:
+        path: /etc/sudoers
+        regexp: "^Defaults\s+use_pty"
+        line: 'Defaults use_pty'
+        state: present
+      validate: 'visudo -cf %s'
+
+#CID-11415:Ensure the NOPASSWD and !authenticate options in the file '/etc/sudoers' is not set sudo
+---
+- name: Remove NOPASSWD and !authenticate from sudoers
+  hosts: all
+  become: true
+  tasks:
+    - name: Remove NOPASSWD entries
+      replace:
+        path: /etc/sudoers
+        regexp: 'NOPASSWD:'
+        replace: ''
+      validate: 'visudo -cf %s'
+
+    - name: Remove !authenticate entries
+      replace:
+        path: /etc/sudoers
+        regexp: '!authenticate'
+        replace: ''
+      validate: 'visudo -cf %s'
+
+#CID-18164:Ensure "NOPASSWD|!authenticate" kernel module setting from all files inside sudoers.d dir is not existed or removed
+---
+- name: Clean sudoers.d files from insecure settings
+  hosts: all
+  become: true
+  tasks:
+    - name: Find all files in sudoers.d
+      find:
+        paths: /etc/sudoers.d
+        file_type: file
+      register: sudoers_files
+
+    - name: Remove NOPASSWD and !authenticate from all sudoers.d files
+      replace:
+        path: "{{ item.path }}"
+        regexp: '(NOPASSWD:|!authenticate)'
+        replace: ''
+      loop: "{{ sudoers_files.files }}"
+      validate: 'visudo -cf %s'
+
+#CID-17690:Ensure the 'ucredit' parameter within '/etc/security/pwquality.conf' and '/etc/security/pwquality.conf.d/*.conf' file(s) is enabled
+---
+- name: Configure password complexity - ucredit
+  hosts: all
+  become: true
+  tasks:
+    - name: Set ucredit requirement
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^ucredit'
+        line: 'ucredit = -1'
+        state: present
+
+#CID-17691:Ensure the 'lcredit' parameter within '/etc/security/pwquality.conf' and '/etc/security/pwquality.conf.d/*.conf' file(s) is enabled
+---
+- name: Configure password complexity - lcredit
+  hosts: all
+  become: true
+  tasks:
+    - name: Set lcredit requirement
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^lcredit'
+        line: 'lcredit = -1'
+        state: present
+
+#CID-17692:Ensure the 'dcredit' parameter within '/etc/security/pwquality.conf' and '/etc/security/pwquality.conf.d/*.conf' file(s) is enabled
+---
+- name: Configure password complexity - dcredit
+  hosts: all
+  become: true
+  tasks:
+    - name: Set dcredit requirement
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^dcredit'
+        line: 'dcredit = -1'
+        state: present
+
+#CID-17693:Ensure the 'ocredit' parameter within '/etc/security/pwquality.conf' and '/etc/security/pwquality.conf.d/*.conf' file(s) is enabled
+---
+- name: Configure password complexity - ocredit
+  hosts: all
+  become: true
+  tasks:
+    - name: Set ocredit requirement
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^ocredit'
+        line: 'ocredit = -1'
+        state: present
+
+#CID-22973:Ensure the 'pam_faillock.so' module in /etc/pam.d/common-auth file is enabled
+---
+- name: Configure pam_faillock in common-auth
+  hosts: all
+  become: true
+  tasks:
+    - name: Enable pam_faillock
+      pamd:
+        name: common-auth
+        type: auth
+        control: required
+        module_path: pam_faillock.so
+        arguments: 'preauth silent audit deny=5 unlock_time=900'
+        state: before
+        module_control: sufficient
+
+    - name: Add pam_faillock authfail line
+      pamd:
+        name: common-auth
+        type: auth
+        control: '[default=die]'
+        module_path: pam_faillock.so
+        arguments: 'authfail audit deny=5 unlock_time=900'
+        state: after
+        module_control: sufficient
+#CID-26503:Ensure the lockout for failed password attempts is enabled
+---
+- name: Configure account lockout for failed attempts
+  hosts: all
+  become: true
+  tasks:
+    - name: Set faillock configuration
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^deny ='
+        line: 'deny = 5'
+        state: present
+
+    - name: Configure pam_faillock in system-auth
+      pamd:
+        name: system-auth
+        type: auth
+        control: required
+        module_path: pam_faillock.so
+        arguments: 'preauth silent audit deny=5 unlock_time=900'
+        state: before
+        module_control: sufficient
+
+#CID-20571:Ensure 'fail_interval' setting configured in /etc/security/faillock.conf file is enabled
+---
+- name: Configure fail_interval in faillock
+  hosts: all
+  become: true
+  tasks:
+    - name: Set fail interval
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^fail_interval ='
+        line: 'fail_interval = 900'
+        state: present
+
+#CID-20572:Ensure 'unlock_time' setting configured in /etc/security/faillock.conf file is enabled
+---
+- name: Configure unlock_time in faillock
+  hosts: all
+  become: true
+  tasks:
+    - name: Set unlock time
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^unlock_time ='
+        line: 'unlock_time = 900'
+        state: present
+
+#CID-19663:Ensure the pam_unix module in /etc/pam.d/common-password is enabled
+---
+- name: Configure pam_unix in common-password
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure pam_unix is present
+      pamd:
+        name: common-password
+        type: password
+        control: '[success=1 default=ignore]'
+        module_path: pam_unix.so
+        arguments: 'obscure sha512'
+        state: present
+
+#CID-11168:Ensure the ENCRYPT_METHOD setting within /etc/login.defs is enabled
+---
+- name: Configure encryption method in login.defs
+  hosts: all
+  become: true
+  tasks:
+    - name: Set ENCRYPT_METHOD to SHA512
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^ENCRYPT_METHOD'
+        line: 'ENCRYPT_METHOD SHA512'
+        state: present
+
+#CID-24935:Ensure the password hashing algorithms for user accounts (/etc/shadow file) is enabled
+---
+- name: Ensure SHA512 password hashing
+  hosts: all
+  become: true
+  tasks:
+    - name: Update password hashing algorithm
+      command: authconfig --passalgo=sha512 --update
+      when: ansible_distribution == 'RedHat'
+
+    - name: Update password hashing algorithm for Debian
+      command: dpkg-reconfigure -f noninteractive libpam-runtime
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+#CID-10733:Ensure the 'Minimum Password Age' for 'users with a password' setting is set to "1"
+---
+- name: Configure minimum password age
+  hosts: all
+  become: true
+  tasks:
+    - name: Set PASS_MIN_DAYS in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MIN_DAYS'
+        line: 'PASS_MIN_DAYS 1'
+        state: present
+
+    - name: Set minimum days for existing users
+      command: chage --mindays 1 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-10170:Ensure the password expiration date within /etc/shadow file is enabled
+---
+- name: Ensure password expiration is enabled
+  hosts: all
+  become: true
+  tasks:
+    - name: Set PASS_MAX_DAYS in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MAX_DAYS'
+        line: 'PASS_MAX_DAYS 90'
+        state: present
+
+    - name: Set password max days for existing users
+      command: chage --maxdays 90 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-10735:Ensure the 'Maximum number of days of inactivity allowed before a user account is locked out' for 'users with a password' setting is set to 30 days or less
+---
+- name: Configure password inactivity
+  hosts: all
+  become: true
+  tasks:
+    - name: Set INACTIVE in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^INACTIVE'
+        line: 'INACTIVE 30'
+        state: present
+
+    - name: Set inactive days for existing users
+      command: chage --inactive 30 {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+
+#CID-12807:Ensure the 'Last password change' setting for user is enabled
+---
+- name: Ensure last password change tracking is enabled
+  hosts: all
+  become: true
+  tasks:
+    - name: Verify password change dates
+      command: chage -l {{ item }}
+      loop: "{{ ansible_users | map('extract', ansible_user_info) | map(attribute='name') | list }}"
+      register: chage_output
+      changed_when: false
+
+#CID-24734:Ensure the System Accounts with the login shell is set to locked
+---
+- name: Lock system accounts
+  hosts: all
+  become: true
+  tasks:
+    - name: Get system accounts
+      command: awk -F: '$1!~/(root|sync|shutdown|halt|^\+)/ && $3<1000 && $7!~/(false|nologin)/ {print $1}' /etc/passwd
+      register: system_accounts
+      changed_when: false
+
+    - name: Lock system accounts with login shells
+      user:
+        name: "{{ item }}"
+        shell: /sbin/nologin
+      loop: "{{ system_accounts.stdout_lines }}"
+      when: system_accounts.stdout_lines | length > 0
+
+#CID-24712:Ensure the 'pam_umask' module configured in /etc/pam.d/common-session file is enabled
+---
+- name: Configure pam_umask in common-session
+  hosts: all
+  become: true
+  tasks:
+    - name: Add pam_umask to common-session
+      pamd:
+        name: common-session
+        type: session
+        control: optional
+        module_path: pam_umask.so
+        arguments: 'umask=0077'
+        state: present
+
+#CID-11401:Ensure the default user umask settings in the /etc/login.defs file is set to "077"
+---
+- name: Configure default umask in login.defs
+  hosts: all
+  become: true
+  tasks:
+    - name: Set UMASK in login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^UMASK'
+        line: 'UMASK 077'
+        state: present
+
+#CID-12884:Ensure 'umask' setting in /etc/profile and /etc/profile.d/*.sh files is set to "077"
+---
+- name: Configure umask in profile files
+  hosts: all
+  become: true
+  tasks:
+    - name: Set umask in /etc/profile
+      lineinfile:
+        path: /etc/profile
+        regexp: '^umask'
+        line: 'umask 077'
+        state: present
+
+    - name: Ensure umask in profile.d files
+      lineinfile:
+        path: /etc/profile.d/umask.sh
+        line: 'umask 077'
+        create: yes
+        state: present
+
+#CID-4726:Ensure the 'UMASK' setting for the '/etc/bashrc or /etc/bash.bashrc' file is set to "077"
+---
+- name: Configure umask in bashrc
+  hosts: all
+  become: true
+  tasks:
+    - name: Set umask in bashrc
+      lineinfile:
+        path: /etc/bash.bashrc
+        regexp: '^umask'
+        line: 'umask 077'
+        state: present
+
+#CID-14266:Ensure the 'TMOUT' setting defined in the /etc/bash.bashrc is set to "900" seconds
+---
+- name: Configure TMOUT in bash.bashrc
+  hosts: all
+  become: true
+  tasks:
+    - name: Set TMOUT in bash.bashrc
+      lineinfile:
+        path: /etc/bash.bashrc
+        regexp: '^TMOUT'
+        line: 'TMOUT=900'
+        state: present
+
+#CID-14267:Ensure the 'TMOUT' setting defined in /etc/profile and /etc/profile.d/* file is set to "900" seconds
+---
+- name: Configure TMOUT in profile files
+  hosts: all
+  become: true
+  tasks:
+    - name: Set TMOUT in /etc/profile
+      lineinfile:
+        path: /etc/profile
+        regexp: '^TMOUT'
+        line: 'TMOUT=900'
+        state: present
+
+    - name: Ensure TMOUT in profile.d files
+      lineinfile:
+        path: /etc/profile.d/tmout.sh
+        line: 'TMOUT=900'
+        create: yes
+        state: present
+
+#CID-10690:Ensure the Permissions set for the '/etc/passwd-' file is set to "644"
+---
+- name: Set permissions on /etc/passwd-
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/passwd-
+        mode: "0644"
+        owner: root
+        group: root
+
+#CID-10691:Ensure the Ownership set for the '/etc/passwd-' file is set to "root"
+---
+- name: Set ownership on /etc/passwd-
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/passwd-
+        owner: root
+        group: root
+
+#CID-10694:Ensure the Permissions set for the '/etc/group-' file is set to "644"
+---
+- name: Set permissions on /etc/group-
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/group-
+        mode: "0644"
+        owner: root
+        group: root
+
+#CID-10695:Ensure the Ownership set for the '/etc/group-' file is set to "root"
+---
+- name: Set ownership on /etc/group-
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/group-
+        owner: root
+        group: root
+
+#CID-10692:Ensure the Permissions set for the '/etc/shadow-' file is set to "640"
+---
+- name: Set permissions on /etc/shadow-
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/shadow-
+        mode: "0640"
+        owner: root
+        group: shadow
+
+#CID-10693:Ensure the Ownership set for the '/etc/shadow-' file is set to "root"
+---
+- name: Set ownership on /etc/shadow-
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/shadow-
+        owner: root
+        group: shadow
+
+#CID-2190:Ensure the 'Permissions' settings for the '/etc/gshadow' file is set to "640"
+---
+- name: Set permissions on /etc/gshadow
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/gshadow
+        mode: "0640"
+        owner: root
+        group: shadow
+
+#CID-5081:Ensure the 'Ownership' settings for the '/etc/gshadow' file is set to "root"
+---
+- name: Set ownership on /etc/gshadow
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/gshadow
+        owner: root
+        group: shadow
+
+#CID-10696:Ensure the Permissions set for the '/etc/gshadow-' file is set to "640"
+---
+- name: Set permissions on /etc/gshadow-
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper permissions
+      file:
+        path: /etc/gshadow-
+        mode: "0640"
+        owner: root
+        group: shadow
+
+#CID-10697:Ensure the Ownership set for the '/etc/gshadow-' file is set to "root"
+---
+- name: Set ownership on /etc/gshadow-
+  hosts: all
+  become: true
+  tasks:
+    - name: Set proper ownership
+      file:
+        path: /etc/gshadow-
+        owner: root
+        group: shadow
+
+#CID-10505:Ensure world writable files and directories are secured
+---
+- name: Secure world-writable files
+  hosts: all
+  become: true
+  tasks:
+    - name: Find world-writable files
+      find:
+        paths: /
+        file_type: file
+        mode: "002"
+        recurse: yes
+      register: world_writable_files
+
+    - name: Remove world-writable permission from files
+      file:
+        path: "{{ item.path }}"
+        mode: "g-w,o-w"
+      loop: "{{ world_writable_files.files }}"
+      when: world_writable_files.files | length > 0
+
+#CID-8325:Ensure the 'suid' files, ownership, permissions and programs on the host is not existed
+---
+- name: Audit SUID files
+  hosts: all
+  become: true
+  tasks:
+    - name: Find SUID files
+      find:
+        paths: /
+        file_type: file
+        mode: "4000"
+        recurse: yes
+      register: suid_files
+
+    - name: Report SUID files
+      debug:
+        msg: "SUID file found: {{ item.path }}"
+      loop: "{{ suid_files.files }}"
+      when: suid_files.files | length > 0
+#CID-8326:Ensure the SGID files, ownership, permissions, and programs on local filesystem is not existed
+---
+- name: Audit SGID files
+  hosts: all
+  become: true
+  tasks:
+    - name: Find SGID files
+      find:
+        paths: /
+        file_type: file
+        mode: "2000"
+        recurse: yes
+      register: sgid_files
+
+    - name: Report SGID files
+      debug:
+        msg: "SGID file found: {{ item.path }}"
+      loop: "{{ sgid_files.files }}"
+      when: sgid_files.files | length > 0
+
+#CID-4104:Ensure the 'user password' field in '/etc/passwd' setting must be assigned a password
+---
+- name: Verify all accounts have passwords
+  hosts: all
+  become: true
+  tasks:
+    - name: Check for passwordless accounts
+      command: awk -F: '($2 == "") {print $1}' /etc/shadow
+      register: passwordless_accounts
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report passwordless accounts
+      debug:
+        msg: "Passwordless account found: {{ item }}"
+      loop: "{{ passwordless_accounts.stdout_lines }}"
+      when: passwordless_accounts.stdout_lines | length > 0
+
+#CID-17140:Ensure 'shadow' group in /etc/group and /etc/passwd file is no users assigned
+---
+- name: Verify shadow group has no members
+  hosts: all
+  become: true
+  tasks:
+    - name: Check shadow group members
+      command: grep '^shadow:' /etc/group
+      register: shadow_group
+      changed_when: false
+
+    - name: Report shadow group members
+      debug:
+        msg: "Shadow group has members: {{ shadow_group.stdout }}"
+      when: shadow_group.stdout.split(':')[3] != ""
+
+#CID-17139:Ensure the PATH directories not owned by root is disabled or not in use
+---
+- name: Verify PATH directory ownership
+  hosts: all
+  become: true
+  tasks:
+    - name: Get root PATH
+      shell: echo $PATH
+      register: root_path
+      changed_when: false
+
+    - name: Check PATH directory ownership
+      command: stat -c "%U %n" {{ item }}
+      with_items: "{{ root_path.stdout.split(':') }}"
+      register: path_ownership
+      ignore_errors: yes
+
+    - name: Report non-root owned PATH directories
+      debug:
+        msg: "Non-root owned PATH directory: {{ item.stdout }}"
+      loop: "{{ path_ownership.results }}"
+      when: item.stdout is defined and not item.stdout.startswith('root ')
+
+#CID-7417:Ensure 'existing home directories' defined in /etc/passwd is configured
+---
+- name: Verify home directory existence
+  hosts: all
+  become: true
+  tasks:
+    - name: Get all user home directories
+      command: awk -F: '{ print $1,$6 }' /etc/passwd
+      register: user_homes
+      changed_when: false
+
+    - name: Check home directory existence
+      stat:
+        path: "{{ item.split()[1] }}"
+      with_items: "{{ user_homes.stdout_lines }}"
+      register: home_dirs
+      ignore_errors: yes
+
+    - name: Report missing home directories
+      debug:
+        msg: "Missing home directory for {{ item.item.split()[0] }}: {{ item.item.split()[1] }}"
+      loop: "{{ home_dirs.results }}"
+      when: not item.stat.exists
 
 
 
